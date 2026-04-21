@@ -1,0 +1,821 @@
+import React, { useState } from "react";
+import { View, Text, Pressable, ScrollView, Modal } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RootStackParamList } from "../navigation/RootNavigator";
+import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeInDown, FadeIn, FadeOut } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import useUserStore from "../state/userStore";
+import useWishStore from "../state/wishStore";
+import useNotificationStore from "../state/notificationStore";
+import useConnectionStore from "../state/connectionStore";
+import { UserRole } from "../types/wishy";
+import { cn } from "../utils/cn";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+export default function ProfileScreen() {
+  const navigation = useNavigation<NavigationProp>();
+  const insets = useSafeAreaInsets();
+  const currentUser = useUserStore((s) => s.currentUser);
+  const updateUser = useUserStore((s) => s.updateUser);
+  const logout = useUserStore((s) => s.logout);
+  const deleteAccount = useUserStore((s) => s.deleteAccount);
+  const getUserAverageRating = useWishStore((s) => s.getUserAverageRating);
+  const wishes = useWishStore((s) => s.wishes);
+  const hiddenWishes = useWishStore((s) => s.hiddenWishes);
+  const getUnreadCount = useNotificationStore((s) => s.getUnreadCount);
+  const getRelationshipConnections = useConnectionStore((s) => s.getRelationshipConnections);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showEnlargedPhoto, setShowEnlargedPhoto] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const unreadNotifications = getUnreadCount(currentUser?.id || "");
+  const userRating = currentUser ? getUserAverageRating(currentUser.id) : { average: 0, praised: 0, total: 0 };
+
+  // Calculate wish statistics - subscribe to wishes array for immediate updates
+  const wishStats = React.useMemo(() => {
+    if (!currentUser) return { forMe: 0, forOthers: 0, received: 0, fulfilled: 0, inProgress: 0 };
+
+    const forMe = wishes.filter((wish) => {
+      return wish.creatorId === currentUser.id && wish.creatorRole === "wished";
+    });
+
+    const forOthers = wishes.filter((wish) => {
+      return wish.creatorId === currentUser.id && wish.creatorRole === "wisher";
+    });
+
+    const received = wishes.filter((wish) => {
+      const isTargetedToMe =
+        wish.targetUserId === currentUser.id ||
+        (wish.targetUserIds && wish.targetUserIds.includes(currentUser.id));
+
+      return (
+        isTargetedToMe &&
+        wish.creatorId !== currentUser.id &&
+        !hiddenWishes.includes(wish.id)
+      );
+    });
+
+    const allMyWishes = [...forMe, ...forOthers, ...received];
+    const fulfilled = allMyWishes.filter(w => w.status === "fulfilled").length;
+    const inProgress = allMyWishes.filter(w => w.status === "accepted" || w.status === "sent").length;
+
+    return {
+      forMe: forMe.length,
+      forOthers: forOthers.length,
+      received: received.length,
+      fulfilled,
+      inProgress,
+    };
+  }, [currentUser, wishes, hiddenWishes]);
+
+  const handleLogout = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    await logout();
+    setShowLogoutModal(false);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Welcome" }],
+    });
+  };
+
+  const handleQRCode = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("QRCode");
+  };
+
+  const handleChangePhoto = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowPhotoModal(true);
+  };
+
+  const handleViewPhoto = () => {
+    if (currentUser?.profilePhoto) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setShowEnlargedPhoto(true);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    setShowPhotoModal(false);
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (!permissionResult.granted) {
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      updateUser({ profilePhoto: result.assets[0].uri });
+    }
+  };
+
+  const handleChoosePhoto = async () => {
+    setShowPhotoModal(false);
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissionResult.granted) {
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "images",
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      updateUser({ profilePhoto: result.assets[0].uri });
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setShowPhotoModal(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    updateUser({ profilePhoto: undefined });
+  };
+
+  const handleLogoPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("Landing");
+  };
+
+  const handleChangeRole = (newRole: UserRole) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    updateUser({ role: newRole });
+    setShowRoleModal(false);
+  };
+
+  const handleEditProfile = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("EditProfile");
+  };
+
+  const handleSettings = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("Settings");
+  };
+
+  const handleDeleteAccount = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteAccount = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    deleteAccount();
+    setShowDeleteModal(false);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Welcome" }],
+    });
+  };
+
+  if (!currentUser) {
+    return (
+      <View className="flex-1 bg-wishy-white items-center justify-center">
+        <Text className="text-wishy-gray">No profile found</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View className="flex-1 bg-wishy-white">
+      {/* Home Icon - Top Left Corner */}
+      <Pressable
+        onPress={handleLogoPress}
+        style={{ position: "absolute", top: insets.top + 8, left: 12, zIndex: 50 }}
+        className="w-9 h-9 bg-wishy-white rounded-full items-center justify-center active:opacity-70 shadow-md border border-wishy-paleBlush"
+      >
+        <Ionicons name="home" size={20} color="#8B2252" />
+      </Pressable>
+
+      <ScrollView
+        style={{ paddingTop: insets.top }}
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+      >
+      {/* Profile Header */}
+      <Animated.View
+        entering={FadeInDown.delay(100).duration(400)}
+        className="items-center pt-6 pb-8 px-6"
+      >
+        <Pressable onPress={handleViewPhoto} className="relative">
+          <View className="w-28 h-28 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-4 border-wishy-pink">
+            {currentUser.profilePhoto ? (
+              <Image
+                source={{ uri: currentUser.profilePhoto }}
+                style={{ width: 112, height: 112 }}
+                contentFit="cover"
+              />
+            ) : (
+              <Ionicons name="person" size={48} color="#8B2252" />
+            )}
+          </View>
+          <Pressable
+            onPress={handleChangePhoto}
+            className="absolute bottom-0 right-0 bg-wishy-black w-9 h-9 rounded-full items-center justify-center border-2 border-wishy-white"
+          >
+            <Ionicons name="camera" size={18} color="#FFB6D9" />
+          </Pressable>
+        </Pressable>
+        <Text className="text-wishy-black font-bold text-2xl mt-4">
+          {currentUser.name}
+        </Text>
+        {currentUser.bio && (
+          <Text className="text-wishy-gray text-center mt-2 px-4">
+            {currentUser.bio}
+          </Text>
+        )}
+
+        {/* Role Badge */}
+        <View className="flex-row mt-4 space-x-2">
+          <View className="bg-wishy-black px-4 py-2 rounded-full flex-row items-center">
+            <Ionicons name="sparkles" size={16} color="#D4AF37" />
+            <Text className="text-wishy-white font-medium ml-2 capitalize">
+              {currentUser.role === "both" ? "Wisher & Wished" : currentUser.role}
+            </Text>
+          </View>
+          {currentUser.isElite && (
+            <View className="bg-wishy-darkPink px-4 py-2 rounded-full">
+              <Text className="text-wishy-black font-medium">Elite</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Rating Display */}
+        {userRating.total > 0 && (
+          <View className="mt-4 w-full bg-wishy-paleBlush px-6 py-4 rounded-2xl border-2 border-wishy-pink">
+            <View className="flex-row items-center justify-center mb-2">
+              <Ionicons name="sparkles" size={20} color="#8B2252" />
+              <Text className="text-wishy-black font-bold text-lg ml-2">
+                Your Satisfaction Rating
+              </Text>
+            </View>
+            <View className="flex-row items-center justify-center gap-2">
+              {[1, 2, 3, 4, 5].map((wand) => (
+                <Ionicons
+                  key={wand}
+                  name="sparkles"
+                  size={24}
+                  color={userRating.average >= wand ? "#8B2252" : "#E5E7EB"}
+                />
+              ))}
+            </View>
+            <Text className="text-center text-wishy-gray text-base mt-2">
+              {userRating.average.toFixed(1)} / 5.0 ({userRating.total} {userRating.total === 1 ? "review" : "reviews"})
+            </Text>
+            {userRating.praised > 0 && (
+              <View className="flex-row items-center justify-center mt-2">
+                <Ionicons name="heart" size={18} color="#D4536B" />
+                <Text className="text-wishy-black font-medium ml-2">
+                  {userRating.praised} {userRating.praised === 1 ? "heart" : "hearts"} received
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Wishy Journey Statistics */}
+        <View className="mt-4 w-full bg-white px-6 py-4 rounded-2xl border-2 border-wishy-paleBlush">
+          <View className="flex-row items-center justify-center mb-4">
+            <Ionicons name="stats-chart" size={20} color="#8B2252" />
+            <Text className="text-wishy-black font-bold text-lg ml-2">
+              Your Wishy Journey
+            </Text>
+          </View>
+          <View className="flex-row flex-wrap gap-3">
+            <View className="flex-1 bg-wishy-paleBlush/30 p-3 rounded-xl min-w-[45%]">
+              <Text className="text-wishy-black font-bold text-2xl text-center">{wishStats.fulfilled}</Text>
+              <Text className="text-wishy-gray text-xs text-center mt-1">Fulfilled</Text>
+            </View>
+            <View className="flex-1 bg-wishy-paleBlush/30 p-3 rounded-xl min-w-[45%]">
+              <Text className="text-wishy-black font-bold text-2xl text-center">{wishStats.inProgress}</Text>
+              <Text className="text-wishy-gray text-xs text-center mt-1">In Progress</Text>
+            </View>
+            <View className="flex-1 bg-wishy-paleBlush/30 p-3 rounded-xl min-w-[45%]">
+              <Text className="text-wishy-black font-bold text-2xl text-center">{wishStats.forMe}</Text>
+              <Text className="text-wishy-gray text-xs text-center mt-1">For Me</Text>
+            </View>
+            <View className="flex-1 bg-wishy-paleBlush/30 p-3 rounded-xl min-w-[45%]">
+              <Text className="text-wishy-black font-bold text-2xl text-center">{wishStats.forOthers}</Text>
+              <Text className="text-wishy-gray text-xs text-center mt-1">For Others</Text>
+            </View>
+            <View className="flex-1 bg-wishy-paleBlush/30 p-3 rounded-xl min-w-[45%]">
+              <Text className="text-wishy-black font-bold text-2xl text-center">{wishStats.received}</Text>
+              <Text className="text-wishy-gray text-xs text-center mt-1">Received</Text>
+            </View>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* Interests */}
+      {currentUser.interests.length > 0 && (
+        <Animated.View
+          entering={FadeInDown.delay(200).duration(400)}
+          className="px-6 mb-6"
+        >
+          <Text className="text-wishy-black font-semibold mb-3">Interests</Text>
+          <View className="flex-row flex-wrap gap-2">
+            {currentUser.interests.map((interest) => (
+              <View
+                key={interest}
+                className="bg-white px-4 py-2 rounded-full border border-wishy-paleBlush"
+              >
+                <Text className="text-wishy-black text-sm">{interest}</Text>
+              </View>
+            ))}
+          </View>
+        </Animated.View>
+      )}
+
+      {/* Actions */}
+      <Animated.View
+        entering={FadeInDown.delay(300).duration(400)}
+        className="px-6"
+      >
+        <Text className="text-wishy-black font-semibold mb-3">Quick Actions</Text>
+
+        {/* Notifications */}
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("Notifications");
+          }}
+          className="bg-white rounded-2xl p-4 mb-3 flex-row items-center justify-between border border-wishy-paleBlush active:opacity-80"
+        >
+          <View className="flex-row items-center flex-1">
+            <View className="w-10 h-10 bg-wishy-paleBlush rounded-full items-center justify-center mr-3">
+              <Ionicons name="notifications" size={20} color="#4A1528" />
+            </View>
+            <Text className="text-wishy-black font-medium text-base">Notifications</Text>
+          </View>
+          <View className="flex-row items-center">
+            {unreadNotifications > 0 && (
+              <View className="bg-wishy-pink px-2 py-0.5 rounded-full mr-2">
+                <Text className="text-wishy-black text-xs font-semibold">
+                  {unreadNotifications}
+                </Text>
+              </View>
+            )}
+            <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
+          </View>
+        </Pressable>
+
+        {/* Edit Profile */}
+        <Pressable
+          onPress={handleEditProfile}
+          className="bg-white rounded-xl p-4 flex-row items-center mb-3 active:opacity-95 border border-wishy-paleBlush"
+        >
+          <View className="w-10 h-10 bg-wishy-paleBlush rounded-xl items-center justify-center">
+            <Ionicons name="create-outline" size={22} color="#8B2252" />
+          </View>
+          <Text className="flex-1 text-wishy-black font-medium ml-3">
+            Edit Profile
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
+        </Pressable>
+
+        {/* Change Role Button */}
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowRoleModal(true);
+          }}
+          className="bg-white rounded-xl p-4 flex-row items-center mb-3 active:opacity-95 border border-wishy-paleBlush"
+        >
+          <View className="w-10 h-10 bg-wishy-paleBlush rounded-xl items-center justify-center">
+            <Ionicons name="person-outline" size={22} color="#8B2252" />
+          </View>
+          <View className="flex-1 ml-3">
+            <Text className="text-wishy-black font-medium">
+              Change Role
+            </Text>
+            <Text className="text-wishy-gray text-xs mt-0.5">
+              Currently: {currentUser.role === "both" ? "Wisher & Wished" : currentUser.role}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
+        </Pressable>
+
+        <Pressable
+          onPress={handleQRCode}
+          className="bg-white rounded-xl p-4 flex-row items-center mb-3 active:opacity-95"
+        >
+          <View className="w-10 h-10 bg-wishy-paleBlush rounded-xl items-center justify-center">
+            <Ionicons name="qr-code" size={22} color="#8B2252" />
+          </View>
+          <Text className="flex-1 text-wishy-black font-medium ml-3">
+            My QR Code
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
+        </Pressable>
+
+        <Pressable
+          onPress={handleSettings}
+          className="bg-white rounded-xl p-4 flex-row items-center mb-3 active:opacity-95 border border-wishy-paleBlush"
+        >
+          <View className="w-10 h-10 bg-wishy-paleBlush rounded-xl items-center justify-center">
+            <Ionicons name="settings-outline" size={22} color="#8B2252" />
+          </View>
+          <Text className="flex-1 text-wishy-black font-medium ml-3">
+            Search Settings
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
+        </Pressable>
+
+        <Pressable
+          className="bg-white rounded-xl p-4 flex-row items-center mb-3 active:opacity-95 border border-wishy-paleBlush"
+        >
+          <View className="w-10 h-10 bg-wishy-paleBlush rounded-xl items-center justify-center">
+            <Ionicons name="shield-outline" size={22} color="#8B2252" />
+          </View>
+          <Text className="flex-1 text-wishy-black font-medium ml-3">
+            Privacy
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
+        </Pressable>
+
+        <Pressable
+          className="bg-white rounded-xl p-4 flex-row items-center active:opacity-95"
+        >
+          <View className="w-10 h-10 bg-wishy-paleBlush rounded-xl items-center justify-center">
+            <Ionicons name="help-circle-outline" size={22} color="#8B2252" />
+          </View>
+          <Text className="flex-1 text-wishy-black font-medium ml-3">
+            Help & Support
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
+        </Pressable>
+
+        {/* Push Debug - for testing */}
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("PushDebug");
+          }}
+          className="bg-gray-100 rounded-xl p-4 flex-row items-center mt-3 active:opacity-95 border border-gray-200"
+        >
+          <View className="w-10 h-10 bg-gray-200 rounded-xl items-center justify-center">
+            <Ionicons name="bug-outline" size={22} color="#666" />
+          </View>
+          <Text className="flex-1 text-gray-700 font-medium ml-3">
+            Push Debug
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
+        </Pressable>
+      </Animated.View>
+
+      {/* Logout */}
+      <Animated.View
+        entering={FadeInDown.delay(400).duration(400)}
+        className="px-6 mt-8"
+      >
+        <Pressable
+          onPress={handleLogout}
+          className="py-4 rounded-xl items-center border border-wishy-pink active:opacity-90 mb-3"
+        >
+          <Text className="text-wishy-black font-semibold">Log Out</Text>
+        </Pressable>
+
+        {/* Delete Account */}
+        <Pressable
+          onPress={handleDeleteAccount}
+          className="py-4 rounded-xl items-center border-2 border-red-200 bg-red-50 active:opacity-90"
+        >
+          <Text className="text-red-600 font-semibold">Delete Account</Text>
+        </Pressable>
+      </Animated.View>
+
+      {/* Photo Options Modal */}
+      <Modal
+        visible={showPhotoModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPhotoModal(false)}
+      >
+        <Pressable
+          onPress={() => setShowPhotoModal(false)}
+          className="flex-1 bg-black/50 justify-end"
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <Animated.View
+              entering={FadeIn.duration(200)}
+              exiting={FadeOut.duration(200)}
+              className="bg-wishy-white rounded-t-3xl p-6"
+            >
+              <View className="w-12 h-1 bg-wishy-paleBlush rounded-full self-center mb-6" />
+
+              <Text className="text-wishy-black font-bold text-xl mb-6 text-center">
+                Profile Photo
+              </Text>
+
+              <Pressable
+                onPress={handleTakePhoto}
+                className="bg-wishy-pink/20 rounded-xl p-4 flex-row items-center mb-3 active:opacity-80"
+              >
+                <View className="w-10 h-10 bg-wishy-pink rounded-xl items-center justify-center">
+                  <Ionicons name="camera" size={22} color="#000000" />
+                </View>
+                <Text className="flex-1 text-wishy-black font-medium ml-3">
+                  Take Photo
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleChoosePhoto}
+                className="bg-wishy-pink/20 rounded-xl p-4 flex-row items-center mb-3 active:opacity-80"
+              >
+                <View className="w-10 h-10 bg-wishy-pink rounded-xl items-center justify-center">
+                  <Ionicons name="images" size={22} color="#000000" />
+                </View>
+                <Text className="flex-1 text-wishy-black font-medium ml-3">
+                  Choose from Library
+                </Text>
+              </Pressable>
+
+              {currentUser?.profilePhoto && (
+                <Pressable
+                  onPress={handleRemovePhoto}
+                  className="bg-red-50 rounded-xl p-4 flex-row items-center mb-3 active:opacity-80"
+                >
+                  <View className="w-10 h-10 bg-red-100 rounded-xl items-center justify-center">
+                    <Ionicons name="trash-outline" size={22} color="#DC2626" />
+                  </View>
+                  <Text className="flex-1 text-red-600 font-medium ml-3">
+                    Remove Photo
+                  </Text>
+                </Pressable>
+              )}
+
+              <Pressable
+                onPress={() => setShowPhotoModal(false)}
+                className="mt-2 py-4 rounded-xl items-center active:opacity-80"
+              >
+                <Text className="text-wishy-gray font-medium">Cancel</Text>
+              </Pressable>
+            </Animated.View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Enlarged Photo Modal */}
+      <Modal
+        visible={showEnlargedPhoto}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEnlargedPhoto(false)}
+      >
+        <Pressable
+          onPress={() => setShowEnlargedPhoto(false)}
+          className="flex-1 bg-black/90 items-center justify-center"
+        >
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(200)}
+            className="w-full px-6"
+          >
+            {currentUser?.profilePhoto && (
+              <Image
+                source={{ uri: currentUser.profilePhoto }}
+                style={{ width: "100%", aspectRatio: 1, borderRadius: 20 }}
+                contentFit="contain"
+              />
+            )}
+          </Animated.View>
+
+          <Pressable
+            onPress={() => setShowEnlargedPhoto(false)}
+            className="absolute top-12 right-6 w-10 h-10 bg-wishy-white/20 rounded-full items-center justify-center"
+          >
+            <Ionicons name="close" size={24} color="#FFFFFF" />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Change Role Modal */}
+      <Modal
+        visible={showRoleModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRoleModal(false)}
+      >
+        <Pressable
+          onPress={() => setShowRoleModal(false)}
+          className="flex-1 bg-black/50 justify-center items-center"
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <Animated.View
+              entering={FadeIn.duration(200)}
+              exiting={FadeOut.duration(200)}
+              className="bg-wishy-white rounded-3xl p-6 mx-6 w-[90%] max-w-md"
+            >
+              <View className="items-center mb-6">
+                <View className="w-16 h-16 bg-wishy-paleBlush rounded-full items-center justify-center mb-4">
+                  <Ionicons name="person" size={32} color="#8B2252" />
+                </View>
+                <Text className="text-wishy-black font-bold text-2xl mb-2 text-center">
+                  Change Your Role
+                </Text>
+                <Text className="text-wishy-gray text-center text-sm">
+                  Select the role that best describes how you want to use Wishy
+                </Text>
+              </View>
+
+              {/* Role Options */}
+              <View className="gap-3 mb-4">
+                {/* Wished */}
+                <Pressable
+                  onPress={() => handleChangeRole("wished")}
+                  className={cn(
+                    "p-4 rounded-2xl border-2 active:opacity-80",
+                    currentUser.role === "wished"
+                      ? "bg-wishy-paleBlush border-wishy-darkPink"
+                      : "bg-white border-wishy-paleBlush"
+                  )}
+                >
+                  <View className="flex-row items-center justify-between mb-2">
+                    <Text className="text-wishy-black font-bold text-lg">Wished</Text>
+                    {currentUser.role === "wished" && (
+                      <Ionicons name="checkmark-circle" size={24} color="#8B2252" />
+                    )}
+                  </View>
+                  <Text className="text-wishy-gray text-sm">
+                    Share your desires and let others fulfill them
+                  </Text>
+                </Pressable>
+
+                {/* Wisher */}
+                <Pressable
+                  onPress={() => handleChangeRole("wisher")}
+                  className={cn(
+                    "p-4 rounded-2xl border-2 active:opacity-80",
+                    currentUser.role === "wisher"
+                      ? "bg-wishy-paleBlush border-wishy-darkPink"
+                      : "bg-white border-wishy-paleBlush"
+                  )}
+                >
+                  <View className="flex-row items-center justify-between mb-2">
+                    <Text className="text-wishy-black font-bold text-lg">Wisher</Text>
+                    {currentUser.role === "wisher" && (
+                      <Ionicons name="checkmark-circle" size={24} color="#8B2252" />
+                    )}
+                  </View>
+                  <Text className="text-wishy-gray text-sm">
+                    Discover wishes to fulfill and create meaningful moments
+                  </Text>
+                </Pressable>
+
+                {/* Both */}
+                <Pressable
+                  onPress={() => handleChangeRole("both")}
+                  className={cn(
+                    "p-4 rounded-2xl border-2 active:opacity-80",
+                    currentUser.role === "both"
+                      ? "bg-wishy-paleBlush border-wishy-darkPink"
+                      : "bg-white border-wishy-paleBlush"
+                  )}
+                >
+                  <View className="flex-row items-center justify-between mb-2">
+                    <Text className="text-wishy-black font-bold text-lg">Wisher & Wished</Text>
+                    {currentUser.role === "both" && (
+                      <Ionicons name="checkmark-circle" size={24} color="#8B2252" />
+                    )}
+                  </View>
+                  <Text className="text-wishy-gray text-sm">
+                    Experience the full Wishy journey - share and fulfill wishes
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Cancel Button */}
+              <Pressable
+                onPress={() => setShowRoleModal(false)}
+                className="py-3 rounded-xl items-center border-2 border-wishy-paleBlush active:opacity-80"
+              >
+                <Text className="text-wishy-black font-semibold">Cancel</Text>
+              </Pressable>
+            </Animated.View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <Pressable
+          onPress={() => setShowDeleteModal(false)}
+          className="flex-1 bg-black/50 justify-center items-center"
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <Animated.View
+              entering={FadeIn.duration(200)}
+              exiting={FadeOut.duration(200)}
+              className="bg-wishy-white rounded-3xl p-6 mx-6 w-80"
+            >
+              <View className="items-center mb-4">
+                <View className="w-16 h-16 bg-red-100 rounded-full items-center justify-center mb-3">
+                  <Ionicons name="warning" size={32} color="#DC2626" />
+                </View>
+                <Text className="text-wishy-black font-bold text-xl mb-2 text-center">
+                  Delete Account?
+                </Text>
+                <Text className="text-wishy-gray text-center text-sm">
+                  This action cannot be undone. All your wishes, connections, and data will be permanently deleted.
+                </Text>
+              </View>
+
+              <View className="flex-row gap-3">
+                <Pressable
+                  onPress={() => setShowDeleteModal(false)}
+                  className="flex-1 py-3 rounded-xl items-center border border-wishy-pink active:opacity-80"
+                >
+                  <Text className="text-wishy-black font-semibold">Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={confirmDeleteAccount}
+                  className="flex-1 py-3 rounded-xl items-center bg-red-600 active:opacity-90"
+                >
+                  <Text className="text-white font-semibold">Delete</Text>
+                </Pressable>
+              </View>
+            </Animated.View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <Pressable
+          onPress={() => setShowLogoutModal(false)}
+          className="flex-1 bg-black/50 justify-center items-center"
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <Animated.View
+              entering={FadeIn.duration(200)}
+              exiting={FadeOut.duration(200)}
+              className="bg-wishy-white rounded-3xl p-6 mx-6 w-80"
+            >
+              <View className="items-center mb-4">
+                <View className="w-16 h-16 bg-wishy-paleBlush rounded-full items-center justify-center mb-3">
+                  <Ionicons name="log-out-outline" size={32} color="#8B2252" />
+                </View>
+                <Text className="text-wishy-black font-bold text-xl mb-2 text-center">
+                  Log Out?
+                </Text>
+                <Text className="text-wishy-gray text-center text-sm">
+                  You will be redirected to the welcome screen and can log in with a different account.
+                </Text>
+              </View>
+
+              <View className="flex-row gap-3">
+                <Pressable
+                  onPress={() => setShowLogoutModal(false)}
+                  className="flex-1 py-3 rounded-xl items-center border border-wishy-pink active:opacity-80"
+                >
+                  <Text className="text-wishy-black font-semibold">Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={confirmLogout}
+                  className="flex-1 py-3 rounded-xl items-center bg-wishy-pink active:opacity-90"
+                >
+                  <Text className="text-wishy-black font-semibold">Log Out</Text>
+                </Pressable>
+              </View>
+            </Animated.View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </ScrollView>
+    </View>
+  );
+}

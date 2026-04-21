@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Wishy 1",
+    "slug": "wishy",
+    "scheme": "vibecode",
+    "version": "5.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/image-1765124537.jpeg",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "extra": {
+      "eas": {
+        "projectId": "37ef5027-f316-47ba-b77d-bd0675776ae4"
+      }
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vibecode.wishy",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/image-1765124537.jpeg",
+          "color": "#FFB6D9"
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-asset",
+      "expo-build-properties",
+      "expo-font",
+      "expo-mail-composer",
+      "expo-secure-store",
+      "expo-sqlite",
+      "expo-video",
+      "expo-web-browser"
+    ],
+    "android": {
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/image-1765124537.jpeg",
+        "backgroundColor": "#FFB6D9"
+      },
+      "package": "com.vibecode.wishy"
+    }
+  }
+}
