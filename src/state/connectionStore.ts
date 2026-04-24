@@ -101,17 +101,12 @@ const useConnectionStore = create<ConnectionState>()(
         const id = uuidv4();
         const now = Date.now();
 
-        console.log("=== SEND CONTACT REQUEST ===");
-        console.log("Request ID:", id);
-        console.log("From:", senderId);
-        console.log("To:", receiverId);
 
         // First save to Supabase - this is the source of truth
         restoreSupabaseSession();
         const session = useUserStore.getState().supabaseSession;
 
         if (!session?.access_token) {
-          console.log("ERROR: No session - cannot send contact request");
           throw new Error("Non sei autenticato. Effettua il login.");
         }
 
@@ -125,15 +120,12 @@ const useConnectionStore = create<ConnectionState>()(
             request_type: "connection",
           };
 
-          console.log("Inserting contact request to Supabase:", JSON.stringify(insertData));
           const insertResult = await supabaseDb.insert("connection_requests", insertData);
 
           if (insertResult.error) {
-            console.log("ERROR: Supabase insert failed:", insertResult.error.message);
             throw new Error("Impossibile inviare la richiesta. Riprova.");
           }
 
-          console.log("SUCCESS: Contact request saved to Supabase");
 
           // Now add locally after successful Supabase save
           const newRequest: ContactRequest = {
@@ -167,7 +159,6 @@ const useConnectionStore = create<ConnectionState>()(
 
           return id;
         } catch (error) {
-          console.log("ERROR: Exception sending contact request:", error);
           throw error;
         }
       },
@@ -175,39 +166,29 @@ const useConnectionStore = create<ConnectionState>()(
       acceptContactRequest: async (requestId, connectionType: ConnectionType = "friend") => {
         const request = get().contactRequests.find((r) => r.id === requestId);
         if (!request) {
-          console.log("ERROR: Request not found:", requestId);
           throw new Error("Richiesta non trovata");
         }
 
         if (request.status !== "pending") {
-          console.log("ERROR: Request is not pending:", request.status);
           throw new Error("Questa richiesta è già stata gestita");
         }
 
-        console.log("=== ACCEPTING CONTACT REQUEST ===");
-        console.log("Request ID:", requestId);
-        console.log("From:", request.senderId, "To:", request.receiverId);
-        console.log("Connection Type:", connectionType);
 
         // First update Supabase - this is the source of truth
         restoreSupabaseSession();
         const session = useUserStore.getState().supabaseSession;
 
         if (!session?.access_token) {
-          console.log("ERROR: No session - cannot accept contact request");
           throw new Error("Non sei autenticato. Effettua il login.");
         }
 
         try {
           // Update request status in Supabase
-          console.log("Updating request status in Supabase...");
           const updateResult = await supabaseDb.update("connection_requests", { status: "accepted" }, { id: requestId });
 
           if (updateResult.error) {
-            console.log("ERROR: Failed to update request in Supabase:", updateResult.error.message);
             throw new Error("Impossibile accettare la richiesta. Riprova.");
           }
-          console.log("SUCCESS: Request status updated in Supabase");
 
           // Update locally
           set((state) => ({
@@ -219,7 +200,6 @@ const useConnectionStore = create<ConnectionState>()(
           }));
 
           // Create connection with the specified type (friend or relationship)
-          console.log("Creating connection between", request.senderId, "and", request.receiverId, "as", connectionType);
           await get().createConnection(request.senderId, request.receiverId, connectionType);
 
           // In-app notification
@@ -239,9 +219,7 @@ const useConnectionStore = create<ConnectionState>()(
             sendConnectionAcceptedNotification(request.senderId, currentUser.name);
           }
 
-          console.log("SUCCESS: Contact request accepted and connection created as", connectionType);
         } catch (error) {
-          console.log("ERROR: Exception accepting contact request:", error);
           throw error;
         }
       },
@@ -276,10 +254,6 @@ const useConnectionStore = create<ConnectionState>()(
         const id = uuidv4();
         const now = Date.now();
 
-        console.log("=== SENDING RELATIONSHIP UPGRADE REQUEST ===");
-        console.log("Request ID:", id);
-        console.log("Connection ID:", connectionId);
-        console.log("From:", senderId, "To:", receiverId);
 
         const newRequest: RelationshipUpgradeRequest = {
           id,
@@ -299,7 +273,6 @@ const useConnectionStore = create<ConnectionState>()(
         const session = useUserStore.getState().supabaseSession;
 
         if (!session?.access_token) {
-          console.log("ERROR: No session - cannot send relationship upgrade request");
           throw new Error("Non sei autenticato. Effettua il login.");
         }
 
@@ -313,14 +286,11 @@ const useConnectionStore = create<ConnectionState>()(
             connection_id: connectionId,
           };
 
-          console.log("Inserting relationship upgrade request to Supabase:", JSON.stringify(insertData));
           const insertResult = await supabaseDb.insert("connection_requests", insertData);
 
           if (insertResult.error) {
-            console.log("ERROR: Failed to insert relationship upgrade request:", insertResult.error.message);
             throw new Error("Impossibile inviare la richiesta. Riprova.");
           }
-          console.log("SUCCESS: Relationship upgrade request saved to Supabase");
 
           // In-app notification
           useNotificationStore.getState().addNotification(
@@ -337,10 +307,8 @@ const useConnectionStore = create<ConnectionState>()(
             sendConnectionRequestNotification(receiverId, currentUser.name, id);
           }
 
-          console.log("SUCCESS: Relationship upgrade request sent");
           return id;
         } catch (error) {
-          console.log("ERROR: Exception sending relationship upgrade request:", error);
           throw error;
         }
       },
@@ -348,10 +316,6 @@ const useConnectionStore = create<ConnectionState>()(
       acceptRelationshipUpgradeRequest: async (requestId) => {
         const request = get().relationshipUpgradeRequests.find((r) => r.id === requestId);
         if (request && request.status === "pending") {
-          console.log("=== ACCEPTING RELATIONSHIP UPGRADE REQUEST ===");
-          console.log("Request ID:", requestId);
-          console.log("From:", request.senderId, "To:", request.receiverId);
-          console.log("Connection ID from request:", request.connectionId || "empty");
 
           set((state) => ({
             relationshipUpgradeRequests: state.relationshipUpgradeRequests.map((r) =>
@@ -371,16 +335,12 @@ const useConnectionStore = create<ConnectionState>()(
             const connection = get().getConnectionBetweenUsers(request.senderId, request.receiverId);
             if (connection) {
               connectionId = connection.id;
-              console.log("Found connection by users:", connectionId);
             } else {
-              console.log("ERROR: Could not find connection between users");
             }
           }
 
           if (connectionId) {
-            console.log("Updating connection type to relationship for:", connectionId);
             await get().updateConnectionType(connectionId, "relationship");
-            console.log("SUCCESS: Connection upgraded to relationship");
           }
 
           useNotificationStore.getState().addNotification(
@@ -420,21 +380,11 @@ const useConnectionStore = create<ConnectionState>()(
 
       getPendingUpgradeRequestForConnection: (connectionId) => {
         const allRequests = get().relationshipUpgradeRequests;
-        console.log("getPendingUpgradeRequestForConnection: Looking for connectionId:", connectionId);
-        console.log("getPendingUpgradeRequestForConnection: Total upgrade requests:", allRequests.length);
         if (allRequests.length > 0) {
-          console.log("getPendingUpgradeRequestForConnection: All requests:", JSON.stringify(allRequests.map(r => ({
-            id: r.id,
-            connectionId: r.connectionId,
-            senderId: r.senderId,
-            receiverId: r.receiverId,
-            status: r.status
-          })), null, 2));
         }
         const found = allRequests.find(
           (r) => r.connectionId === connectionId && r.status === "pending"
         );
-        console.log("getPendingUpgradeRequestForConnection: Found:", found?.id || "none");
         return found;
       },
 
@@ -454,17 +404,12 @@ const useConnectionStore = create<ConnectionState>()(
         const id = uuidv4();
         const now = Date.now();
 
-        console.log("=== CREATING CONNECTION ===");
-        console.log("Connection ID:", id);
-        console.log("Between:", senderId, "and", receiverId);
-        console.log("Type:", type);
 
         // First save to Supabase - this is the source of truth
         restoreSupabaseSession();
         const session = useUserStore.getState().supabaseSession;
 
         if (!session?.access_token) {
-          console.log("ERROR: No session - cannot create connection");
           throw new Error("Non sei autenticato. Effettua il login.");
         }
 
@@ -476,14 +421,11 @@ const useConnectionStore = create<ConnectionState>()(
             status: type,
           };
 
-          console.log("Inserting connection to Supabase:", JSON.stringify(insertData));
           const insertResult = await supabaseDb.insert("connections", insertData);
 
           if (insertResult.error) {
-            console.log("ERROR: Failed to insert connection in Supabase:", insertResult.error.message);
             throw new Error("Impossibile creare la connessione. Riprova.");
           }
-          console.log("SUCCESS: Connection saved to Supabase");
 
           // Now add locally after successful Supabase save
           const newConnection: Connection = {
@@ -500,10 +442,8 @@ const useConnectionStore = create<ConnectionState>()(
             connections: [...state.connections, newConnection],
           }));
 
-          console.log("SUCCESS: Connection created successfully");
           return id;
         } catch (error) {
-          console.log("ERROR: Exception creating connection:", error);
           throw error;
         }
       },
@@ -548,23 +488,13 @@ const useConnectionStore = create<ConnectionState>()(
 
       getAcceptedConnections: (userId) => {
         const allConnections = get().connections;
-        console.log("getAcceptedConnections: userId =", userId);
-        console.log("getAcceptedConnections: total connections in store:", allConnections.length);
         if (allConnections.length > 0) {
-          console.log("getAcceptedConnections: all connections:", JSON.stringify(allConnections.map(c => ({
-            id: c.id,
-            senderId: c.senderId,
-            receiverId: c.receiverId,
-            status: c.status,
-            type: c.type
-          })), null, 2));
         }
         const filtered = allConnections.filter(
           (conn) =>
             (conn.senderId === userId || conn.receiverId === userId) &&
             conn.status === "accepted"
         );
-        console.log("getAcceptedConnections: filtered count =", filtered.length);
         return filtered;
       },
 
@@ -815,46 +745,34 @@ const useConnectionStore = create<ConnectionState>()(
         const currentUser = useUserStore.getState().currentUser;
 
         if (!currentUser) {
-          console.log("syncConnections: No current user");
           return;
         }
 
         const userId = currentUser.id;
-        console.log("=== SYNC CONNECTIONS START ===");
-        console.log("syncConnections: Current user ID:", userId);
-        console.log("syncConnections: Current user name:", currentUser.name);
 
         set({ isSyncing: true });
         restoreSupabaseSession();
 
         try {
           // Fetch connections where I am user_id
-          console.log("syncConnections: Fetching connections where user_id =", userId);
           const conn1Result = await supabaseDb.select<Record<string, unknown>[]>("connections", {
             filter: { user_id: userId },
           });
-          console.log("syncConnections: conn1Result (user_id):", JSON.stringify(conn1Result.data || []));
           if (conn1Result.error) {
-            console.log("syncConnections: conn1 ERROR:", conn1Result.error.message);
           }
 
           // Fetch connections where I am connected_user_id
-          console.log("syncConnections: Fetching connections where connected_user_id =", userId);
           const conn2Result = await supabaseDb.select<Record<string, unknown>[]>("connections", {
             filter: { connected_user_id: userId },
           });
-          console.log("syncConnections: conn2Result (connected_user_id):", JSON.stringify(conn2Result.data || []));
           if (conn2Result.error) {
-            console.log("syncConnections: conn2 ERROR:", conn2Result.error.message);
           }
 
           const allConnections = [...(conn1Result.data || []), ...(conn2Result.data || [])];
           // Remove duplicates by ID
           const uniqueConnections = Array.from(new Map(allConnections.map(c => [c.id, c])).values());
 
-          console.log("syncConnections: Total unique connections from Supabase:", uniqueConnections.length);
           if (uniqueConnections.length > 0) {
-            console.log("syncConnections: Raw connections data:", JSON.stringify(uniqueConnections, null, 2));
           }
 
           const supabaseConnections: Connection[] = uniqueConnections.map((c) => ({
@@ -881,14 +799,6 @@ const useConnectionStore = create<ConnectionState>()(
           // Remove duplicate requests
           const uniqueRequests = Array.from(new Map(allRequests.map(r => [r.id, r])).values());
 
-          console.log("Requests total:", uniqueRequests.length);
-          console.log("All requests from Supabase:", JSON.stringify(uniqueRequests.map(r => ({
-            id: r.id,
-            request_type: r.request_type,
-            status: r.status,
-            from: r.from_user_id,
-            to: r.to_user_id
-          })), null, 2));
 
           // Separate contact requests and relationship upgrade requests from Supabase
           const supabaseContactRequests: ContactRequest[] = uniqueRequests
@@ -917,23 +827,10 @@ const useConnectionStore = create<ConnectionState>()(
 
           // Debug: Show all request_types found
           const requestTypes = [...new Set(uniqueRequests.map(r => r.request_type))];
-          console.log("syncConnections: Request types found in Supabase:", requestTypes);
-          console.log("syncConnections: Relationship upgrade requests:", uniqueRequests.filter(r => r.request_type === "relationship_upgrade").length);
 
-          console.log("syncConnections: Connections from Supabase:", supabaseConnections.length);
           if (supabaseConnections.length > 0) {
-            console.log("syncConnections: Mapped connections:", JSON.stringify(supabaseConnections.map(c => ({
-              id: c.id,
-              senderId: c.senderId,
-              receiverId: c.receiverId,
-              type: c.type,
-              status: c.status
-            })), null, 2));
           }
-          console.log("syncConnections: Contact requests from Supabase:", supabaseContactRequests.length);
-          console.log("syncConnections: Relationship upgrade requests from Supabase:", supabaseRelationshipUpgradeRequests.length);
           if (supabaseRelationshipUpgradeRequests.length > 0) {
-            console.log("syncConnections: Upgrade requests:", JSON.stringify(supabaseRelationshipUpgradeRequests, null, 2));
           }
 
           // Check if we have local data that needs to be migrated to Supabase
@@ -942,7 +839,6 @@ const useConnectionStore = create<ConnectionState>()(
 
           // Migrate local connections to Supabase if they don't exist there
           if (localConnections.length > 0 && supabaseConnections.length === 0) {
-            console.log("syncConnections: Migrating", localConnections.length, "local connections to Supabase...");
             for (const conn of localConnections) {
               // Check if this connection involves the current user
               const involvesCurrentUser = conn.senderId === userId || conn.receiverId === userId;
@@ -955,14 +851,11 @@ const useConnectionStore = create<ConnectionState>()(
                     status: conn.type,
                   });
                   if (insertResult.error) {
-                    console.log("Failed to migrate connection:", conn.id, insertResult.error.message);
                   } else {
-                    console.log("Migrated connection:", conn.id);
                     // Add to supabaseConnections so it's included in the final set
                     supabaseConnections.push(conn);
                   }
                 } catch (e) {
-                  console.log("Exception migrating connection:", e);
                 }
               }
             }
@@ -970,7 +863,6 @@ const useConnectionStore = create<ConnectionState>()(
 
           // Migrate local contact requests to Supabase if they don't exist there
           if (localRequests.length > 0 && supabaseContactRequests.length === 0) {
-            console.log("syncConnections: Migrating", localRequests.length, "local contact requests to Supabase...");
             for (const req of localRequests) {
               // Check if this request involves the current user
               const involvesCurrentUser = req.senderId === userId || req.receiverId === userId;
@@ -985,14 +877,11 @@ const useConnectionStore = create<ConnectionState>()(
                     request_type: "connection",
                   });
                   if (insertResult.error) {
-                    console.log("Failed to migrate request:", req.id, insertResult.error.message);
                   } else {
-                    console.log("Migrated contact request:", req.id);
                     // Add to supabaseContactRequests so it's included in the final set
                     supabaseContactRequests.push(req);
                   }
                 } catch (e) {
-                  console.log("Exception migrating request:", e);
                 }
               }
             }
@@ -1001,7 +890,6 @@ const useConnectionStore = create<ConnectionState>()(
           // FIX: Check for accepted requests that don't have a corresponding connection
           // This handles the case where the connection was not created properly when accepting
           const acceptedRequests = supabaseContactRequests.filter(r => r.status === "accepted");
-          console.log("syncConnections: Found", acceptedRequests.length, "accepted requests");
 
           for (const acceptedReq of acceptedRequests) {
             // Check if a connection already exists between these users
@@ -1012,8 +900,6 @@ const useConnectionStore = create<ConnectionState>()(
             );
 
             if (!connectionExists) {
-              console.log("syncConnections: Creating missing connection for accepted request:", acceptedReq.id);
-              console.log("Between:", acceptedReq.senderId, "and", acceptedReq.receiverId);
 
               try {
                 const connId = uuidv4();
@@ -1025,9 +911,7 @@ const useConnectionStore = create<ConnectionState>()(
                 });
 
                 if (insertResult.error) {
-                  console.log("ERROR creating missing connection:", insertResult.error.message);
                 } else {
-                  console.log("SUCCESS: Created missing connection:", connId);
                   // Add to local array
                   const newConnection: Connection = {
                     id: connId,
@@ -1041,7 +925,6 @@ const useConnectionStore = create<ConnectionState>()(
                   supabaseConnections.push(newConnection);
                 }
               } catch (e) {
-                console.log("Exception creating missing connection:", e);
               }
             }
           }
@@ -1058,7 +941,6 @@ const useConnectionStore = create<ConnectionState>()(
           const pendingRequestsReceived = finalRequests.filter(
             (r) => r.receiverId === userId && r.status === "pending"
           );
-          console.log("Pending requests received:", pendingRequestsReceived.length);
 
           const notificationStore = useNotificationStore.getState();
           const existingNotifications = notificationStore.getNotificationsForUser(currentUser.id);
@@ -1071,7 +953,6 @@ const useConnectionStore = create<ConnectionState>()(
 
             if (!hasNotification) {
               // Create notification for this pending request
-              console.log("Creating notification for request:", request.id);
               notificationStore.addNotification(
                 currentUser.id,
                 "connection_request",
@@ -1087,7 +968,6 @@ const useConnectionStore = create<ConnectionState>()(
           const pendingUpgradeRequestsReceived = finalUpgradeRequests.filter(
             (r) => r.receiverId === userId && r.status === "pending"
           );
-          console.log("Pending upgrade requests received:", pendingUpgradeRequestsReceived.length);
 
           pendingUpgradeRequestsReceived.forEach((request) => {
             // Check if notification already exists for this request
@@ -1097,7 +977,6 @@ const useConnectionStore = create<ConnectionState>()(
 
             if (!hasNotification) {
               // Create notification for this pending upgrade request
-              console.log("Creating notification for upgrade request:", request.id);
               notificationStore.addNotification(
                 currentUser.id,
                 "relationship_upgrade_request",
@@ -1109,7 +988,6 @@ const useConnectionStore = create<ConnectionState>()(
           });
 
         } catch (error) {
-          console.log("Sync connections error:", error);
           set({ isSyncing: false });
         }
       },
@@ -1172,7 +1050,6 @@ const useConnectionStore = create<ConnectionState>()(
 
           set({ chats });
         } catch (error) {
-          console.log("Sync chats error:", error);
         }
       },
 
@@ -1230,11 +1107,9 @@ const useConnectionStore = create<ConnectionState>()(
       debugClearAllConnections: async () => {
         const currentUser = useUserStore.getState().currentUser;
         if (!currentUser) {
-          console.log("debugClearAllConnections: No current user");
           return;
         }
 
-        console.log("=== DEBUG: CLEARING ALL CONNECTION DATA ===");
         restoreSupabaseSession();
 
         try {
@@ -1247,11 +1122,9 @@ const useConnectionStore = create<ConnectionState>()(
           });
 
           const allRequests = [...(reqReceived.data || []), ...(reqSent.data || [])];
-          console.log("Found", allRequests.length, "connection requests to delete");
 
           // Delete each request
           for (const req of allRequests) {
-            console.log("Deleting request:", req.id);
             await supabaseDb.delete("connection_requests", { id: req.id });
           }
 
@@ -1264,11 +1137,9 @@ const useConnectionStore = create<ConnectionState>()(
           });
 
           const allConns = [...(conn1.data || []), ...(conn2.data || [])];
-          console.log("Found", allConns.length, "connections to delete");
 
           // Delete each connection
           for (const conn of allConns) {
-            console.log("Deleting connection:", conn.id);
             await supabaseDb.delete("connections", { id: conn.id });
           }
 
@@ -1279,15 +1150,12 @@ const useConnectionStore = create<ConnectionState>()(
             relationshipUpgradeRequests: [],
           });
 
-          console.log("=== DEBUG: ALL CONNECTION DATA CLEARED ===");
         } catch (error) {
-          console.log("debugClearAllConnections ERROR:", error);
         }
       },
 
       // DEBUG: Fetch ALL connections from Supabase (no filter) to see what exists
       debugFetchAllConnectionsRaw: async () => {
-        console.log("=== DEBUG: FETCHING ALL CONNECTIONS RAW ===");
         restoreSupabaseSession();
 
         try {
@@ -1304,7 +1172,6 @@ const useConnectionStore = create<ConnectionState>()(
             }
           );
           const data = await response.json();
-          console.log("DEBUG: All connections in database:", JSON.stringify(data, null, 2));
 
           // Also fetch all connection_requests
           const reqResponse = await fetch(
@@ -1319,11 +1186,9 @@ const useConnectionStore = create<ConnectionState>()(
             }
           );
           const reqData = await reqResponse.json();
-          console.log("DEBUG: All connection_requests in database:", JSON.stringify(reqData, null, 2));
 
           return { connections: data, requests: reqData };
         } catch (error) {
-          console.log("debugFetchAllConnectionsRaw ERROR:", error);
           return null;
         }
       },

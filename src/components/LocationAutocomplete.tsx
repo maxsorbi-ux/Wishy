@@ -57,11 +57,9 @@ export default function LocationAutocomplete({
         setPredictions([]);
         setShowSuggestions(false);
       } else {
-        console.log("Places API error:", data.status, data.error_message);
         setPredictions([]);
       }
     } catch (error) {
-      console.log("Error fetching predictions:", error);
       setPredictions([]);
     } finally {
       setIsLoading(false);

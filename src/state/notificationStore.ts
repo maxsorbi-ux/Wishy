@@ -43,13 +43,6 @@ const useNotificationStore = create<NotificationState>()(
         const id = uuidv4();
         const now = Date.now();
 
-        console.log("=== ADD NOTIFICATION ===");
-        console.log("Notification ID:", id);
-        console.log("For user:", userId);
-        console.log("Type:", type);
-        console.log("Title:", title);
-        console.log("Message:", message);
-        console.log("Related ID:", relatedId);
 
         const newNotification: Notification = {
           id,
@@ -63,7 +56,6 @@ const useNotificationStore = create<NotificationState>()(
         };
 
         set((state) => {
-          console.log("Adding notification to local store. Current count:", state.notifications.length);
           return {
             notifications: [newNotification, ...state.notifications],
           };
@@ -83,17 +75,12 @@ const useNotificationStore = create<NotificationState>()(
           is_read: false,
         };
 
-        console.log("Saving notification to Supabase:", JSON.stringify(notificationData));
 
         supabaseDb.insert("notifications", notificationData).then((result) => {
           if (result.error) {
-            console.log("!!! FAILED to save notification to Supabase:", result.error.message);
-            console.log("Error details:", JSON.stringify(result.error));
           } else {
-            console.log("*** SUCCESS: Notification saved to Supabase:", id);
           }
         }).catch((error) => {
-          console.log("!!! EXCEPTION saving notification to Supabase:", error);
         });
 
         return id;
@@ -121,7 +108,6 @@ const useNotificationStore = create<NotificationState>()(
         // Update in Supabase
         restoreSupabaseSession();
         supabaseDb.update("notifications", { is_read: true }, { id: notificationId }).catch((error) => {
-          console.log("Error updating notification in Supabase:", error);
         });
       },
 
@@ -140,7 +126,6 @@ const useNotificationStore = create<NotificationState>()(
         restoreSupabaseSession();
         unreadNotifications.forEach((notif) => {
           supabaseDb.update("notifications", { is_read: true }, { id: notif.id }).catch((error) => {
-            console.log("Error updating notification in Supabase:", error);
           });
         });
       },
@@ -155,7 +140,6 @@ const useNotificationStore = create<NotificationState>()(
         // Delete from Supabase
         restoreSupabaseSession();
         supabaseDb.delete("notifications", { id: notificationId }).catch((error) => {
-          console.log("Error deleting notification from Supabase:", error);
         });
       },
 
@@ -174,7 +158,6 @@ const useNotificationStore = create<NotificationState>()(
         restoreSupabaseSession();
         userNotifications.forEach((notif) => {
           supabaseDb.delete("notifications", { id: notif.id }).catch((error) => {
-            console.log("Error deleting notification from Supabase:", error);
           });
         });
       },
@@ -182,13 +165,9 @@ const useNotificationStore = create<NotificationState>()(
       syncNotifications: async () => {
         const currentUser = useUserStore.getState().currentUser;
         if (!currentUser) {
-          console.log("syncNotifications: No current user");
           return;
         }
 
-        console.log("=== SYNC NOTIFICATIONS START ===");
-        console.log("syncNotifications: Current user ID:", currentUser.id);
-        console.log("syncNotifications: Current user name:", currentUser.name);
         restoreSupabaseSession();
 
         try {
@@ -199,10 +178,8 @@ const useNotificationStore = create<NotificationState>()(
             limit: 100,
           });
 
-          console.log("syncNotifications: Raw result:", JSON.stringify(result));
 
           if (result.error) {
-            console.log("syncNotifications ERROR:", result.error.message);
             // On error, keep local notifications - don't clear them
             return;
           }
@@ -218,7 +195,6 @@ const useNotificationStore = create<NotificationState>()(
             createdAt: new Date(n.created_at as string).getTime(),
           }));
 
-          console.log("syncNotifications: Fetched", supabaseNotifications.length, "notifications from Supabase");
 
           // Get current local notifications for this user
           const localNotificationsForUser = get().notifications.filter(
@@ -228,8 +204,6 @@ const useNotificationStore = create<NotificationState>()(
             (n) => n.userId !== currentUser.id
           );
 
-          console.log("syncNotifications: Local notifications for current user:", localNotificationsForUser.length);
-          console.log("syncNotifications: Local notifications for other users:", localNotificationsForOthers.length);
 
           // Smart merge: combine Supabase notifications with local ones (avoiding duplicates)
           // Keep local notifications that are not in Supabase (they might not have synced yet)
@@ -238,7 +212,6 @@ const useNotificationStore = create<NotificationState>()(
             (localN) => !supabaseIds.has(localN.id)
           );
 
-          console.log("syncNotifications: Local-only notifications to keep:", localOnlyNotifications.length);
 
           // Combine: Supabase notifications + local-only notifications + other users' notifications
           const mergedNotifications = [
@@ -251,10 +224,7 @@ const useNotificationStore = create<NotificationState>()(
             notifications: mergedNotifications,
           });
 
-          console.log("syncNotifications: Total notifications after sync:", get().notifications.length);
-          console.log("=== SYNC NOTIFICATIONS COMPLETE ===");
         } catch (error) {
-          console.log("syncNotifications ERROR:", error);
           // On error, keep local notifications - don't clear them
         }
       },

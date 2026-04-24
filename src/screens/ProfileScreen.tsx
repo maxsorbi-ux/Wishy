@@ -15,6 +15,7 @@ import useNotificationStore from "../state/notificationStore";
 import useConnectionStore from "../state/connectionStore";
 import { UserRole } from "../types/wishy";
 import { cn } from "../utils/cn";
+import { useModalState } from "../hooks/useModalState";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -30,14 +31,15 @@ export default function ProfileScreen() {
   const hiddenWishes = useWishStore((s) => s.hiddenWishes);
   const getUnreadCount = useNotificationStore((s) => s.getUnreadCount);
   const getRelationshipConnections = useConnectionStore((s) => s.getRelationshipConnections);
-  const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [showEnlargedPhoto, setShowEnlargedPhoto] = useState(false);
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const { show: showModal, hide: hideModal, isVisible } = useModalState(
+    "photo", "enlargedPhoto", "role", "delete", "logout"
+  );
 
   const unreadNotifications = getUnreadCount(currentUser?.id || "");
-  const userRating = currentUser ? getUserAverageRating(currentUser.id) : { average: 0, praised: 0, total: 0 };
+  const userRating = React.useMemo(
+    () => currentUser ? getUserAverageRating(currentUser.id) : { average: 0, praised: 0, total: 0 },
+    [currentUser, getUserAverageRating, wishes]
+  );
 
   // Calculate wish statistics - subscribe to wishes array for immediate updates
   const wishStats = React.useMemo(() => {
@@ -78,12 +80,12 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setShowLogoutModal(true);
+    showModal("logout");
   };
 
   const confirmLogout = async () => {
     await logout();
-    setShowLogoutModal(false);
+    hideModal("logout");
     navigation.reset({
       index: 0,
       routes: [{ name: "Welcome" }],
@@ -97,18 +99,18 @@ export default function ProfileScreen() {
 
   const handleChangePhoto = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setShowPhotoModal(true);
+    showModal("photo");
   };
 
   const handleViewPhoto = () => {
     if (currentUser?.profilePhoto) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setShowEnlargedPhoto(true);
+      showModal("enlargedPhoto");
     }
   };
 
   const handleTakePhoto = async () => {
-    setShowPhotoModal(false);
+    hideModal("photo");
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permissionResult.granted) {
@@ -128,7 +130,7 @@ export default function ProfileScreen() {
   };
 
   const handleChoosePhoto = async () => {
-    setShowPhotoModal(false);
+    hideModal("photo");
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permissionResult.granted) {
@@ -149,7 +151,7 @@ export default function ProfileScreen() {
   };
 
   const handleRemovePhoto = () => {
-    setShowPhotoModal(false);
+    hideModal("photo");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     updateUser({ profilePhoto: undefined });
   };
@@ -162,7 +164,7 @@ export default function ProfileScreen() {
   const handleChangeRole = (newRole: UserRole) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     updateUser({ role: newRole });
-    setShowRoleModal(false);
+    hideModal("role");
   };
 
   const handleEditProfile = () => {
@@ -177,13 +179,13 @@ export default function ProfileScreen() {
 
   const handleDeleteAccount = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setShowDeleteModal(true);
+    showModal("delete");
   };
 
   const confirmDeleteAccount = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     deleteAccount();
-    setShowDeleteModal(false);
+    hideModal("delete");
     navigation.reset({
       index: 0,
       routes: [{ name: "Welcome" }],
@@ -400,7 +402,7 @@ export default function ProfileScreen() {
         <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setShowRoleModal(true);
+            showModal("role");
           }}
           className="bg-white rounded-xl p-4 flex-row items-center mb-3 active:opacity-95 border border-wishy-paleBlush"
         >
@@ -509,13 +511,13 @@ export default function ProfileScreen() {
 
       {/* Photo Options Modal */}
       <Modal
-        visible={showPhotoModal}
+        visible={isVisible("photo")}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowPhotoModal(false)}
+        onRequestClose={() => hideModal("photo")}
       >
         <Pressable
-          onPress={() => setShowPhotoModal(false)}
+          onPress={() => hideModal("photo")}
           className="flex-1 bg-black/50 justify-end"
         >
           <Pressable onPress={(e) => e.stopPropagation()}>
@@ -569,7 +571,7 @@ export default function ProfileScreen() {
               )}
 
               <Pressable
-                onPress={() => setShowPhotoModal(false)}
+                onPress={() => hideModal("photo")}
                 className="mt-2 py-4 rounded-xl items-center active:opacity-80"
               >
                 <Text className="text-wishy-gray font-medium">Cancel</Text>
@@ -581,13 +583,13 @@ export default function ProfileScreen() {
 
       {/* Enlarged Photo Modal */}
       <Modal
-        visible={showEnlargedPhoto}
+        visible={isVisible("enlargedPhoto")}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowEnlargedPhoto(false)}
+        onRequestClose={() => hideModal("enlargedPhoto")}
       >
         <Pressable
-          onPress={() => setShowEnlargedPhoto(false)}
+          onPress={() => hideModal("enlargedPhoto")}
           className="flex-1 bg-black/90 items-center justify-center"
         >
           <Animated.View
@@ -605,7 +607,7 @@ export default function ProfileScreen() {
           </Animated.View>
 
           <Pressable
-            onPress={() => setShowEnlargedPhoto(false)}
+            onPress={() => hideModal("enlargedPhoto")}
             className="absolute top-12 right-6 w-10 h-10 bg-wishy-white/20 rounded-full items-center justify-center"
           >
             <Ionicons name="close" size={24} color="#FFFFFF" />
@@ -615,13 +617,13 @@ export default function ProfileScreen() {
 
       {/* Change Role Modal */}
       <Modal
-        visible={showRoleModal}
+        visible={isVisible("role")}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowRoleModal(false)}
+        onRequestClose={() => hideModal("role")}
       >
         <Pressable
-          onPress={() => setShowRoleModal(false)}
+          onPress={() => hideModal("role")}
           className="flex-1 bg-black/50 justify-center items-center"
         >
           <Pressable onPress={(e) => e.stopPropagation()}>
@@ -710,7 +712,7 @@ export default function ProfileScreen() {
 
               {/* Cancel Button */}
               <Pressable
-                onPress={() => setShowRoleModal(false)}
+                onPress={() => hideModal("role")}
                 className="py-3 rounded-xl items-center border-2 border-wishy-paleBlush active:opacity-80"
               >
                 <Text className="text-wishy-black font-semibold">Cancel</Text>
@@ -722,13 +724,13 @@ export default function ProfileScreen() {
 
       {/* Delete Account Confirmation Modal */}
       <Modal
-        visible={showDeleteModal}
+        visible={isVisible("delete")}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowDeleteModal(false)}
+        onRequestClose={() => hideModal("delete")}
       >
         <Pressable
-          onPress={() => setShowDeleteModal(false)}
+          onPress={() => hideModal("delete")}
           className="flex-1 bg-black/50 justify-center items-center"
         >
           <Pressable onPress={(e) => e.stopPropagation()}>
@@ -751,7 +753,7 @@ export default function ProfileScreen() {
 
               <View className="flex-row gap-3">
                 <Pressable
-                  onPress={() => setShowDeleteModal(false)}
+                  onPress={() => hideModal("delete")}
                   className="flex-1 py-3 rounded-xl items-center border border-wishy-pink active:opacity-80"
                 >
                   <Text className="text-wishy-black font-semibold">Cancel</Text>
@@ -770,13 +772,13 @@ export default function ProfileScreen() {
 
       {/* Logout Confirmation Modal */}
       <Modal
-        visible={showLogoutModal}
+        visible={isVisible("logout")}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowLogoutModal(false)}
+        onRequestClose={() => hideModal("logout")}
       >
         <Pressable
-          onPress={() => setShowLogoutModal(false)}
+          onPress={() => hideModal("logout")}
           className="flex-1 bg-black/50 justify-center items-center"
         >
           <Pressable onPress={(e) => e.stopPropagation()}>
@@ -799,7 +801,7 @@ export default function ProfileScreen() {
 
               <View className="flex-row gap-3">
                 <Pressable
-                  onPress={() => setShowLogoutModal(false)}
+                  onPress={() => hideModal("logout")}
                   className="flex-1 py-3 rounded-xl items-center border border-wishy-pink active:opacity-80"
                 >
                   <Text className="text-wishy-black font-semibold">Cancel</Text>

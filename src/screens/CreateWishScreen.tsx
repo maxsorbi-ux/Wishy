@@ -17,6 +17,7 @@ import useNotificationStore from "../state/notificationStore";
 import { useToastStore } from "../state/toastStore";
 import { WishCategory, CATEGORY_LABELS } from "../types/wishy";
 import { cn } from "../utils/cn";
+import { useModalState } from "../hooks/useModalState";
 import LocationAutocomplete from "../components/LocationAutocomplete";
 import {
   sendWishReceivedNotification,
@@ -65,9 +66,7 @@ export default function CreateWishScreen() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(
     existingWish?.targetUserIds || (existingWish?.targetUserId ? [existingWish.targetUserId] : [])
   );
-  const [showUserPicker, setShowUserPicker] = useState(false);
-  const [showImagePicker, setShowImagePicker] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
+  const { show: showModal, hide: hideModal, isVisible } = useModalState("userPicker", "imagePicker", "camera");
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>("back");
   const cameraRef = React.useRef<any>(null);
@@ -78,21 +77,16 @@ export default function CreateWishScreen() {
   const connectedUsers = React.useMemo(() => {
     if (!currentUser) return [];
     const connections = getAcceptedConnections(currentUser.id);
-    console.log("CreateWishScreen: Current user ID:", currentUser.id);
-    console.log("CreateWishScreen: Accepted connections count:", connections.length);
 
     const connectedUserIds = connections.map((conn) =>
       conn.senderId === currentUser.id ? conn.receiverId : conn.senderId
     );
-    console.log("CreateWishScreen: Connected user IDs:", connectedUserIds.join(", "));
 
     // Show all connected users - don't filter by role
     const filteredUsers = allUsers.filter((user) => {
       return connectedUserIds.includes(user.id);
     });
 
-    console.log("CreateWishScreen: Filtered users count:", filteredUsers.length);
-    console.log("CreateWishScreen: All users count:", allUsers.length);
 
     return filteredUsers;
   }, [currentUser, getAcceptedConnections, allUsers]);
@@ -107,7 +101,7 @@ export default function CreateWishScreen() {
 
     if (!result.canceled && result.assets[0]) {
       setImage(result.assets[0].uri);
-      setShowImagePicker(false);
+      hideModal("imagePicker");
     }
   };
 
@@ -119,8 +113,8 @@ export default function CreateWishScreen() {
         return;
       }
     }
-    setShowImagePicker(false);
-    setShowCamera(true);
+    hideModal("imagePicker");
+    showModal("camera");
   };
 
   const capturePhoto = async () => {
@@ -129,7 +123,7 @@ export default function CreateWishScreen() {
         quality: 0.8,
       });
       setImage(photo.uri);
-      setShowCamera(false);
+      hideModal("camera");
     }
   };
 
@@ -316,7 +310,7 @@ export default function CreateWishScreen() {
   const isValid = title.trim().length > 0 && (category !== "custom" || customCategory.trim().length > 0);
 
   // Camera View
-  if (showCamera) {
+  if (isVisible("camera")) {
     return (
       <View className="flex-1 bg-black">
         <CameraView
@@ -327,7 +321,7 @@ export default function CreateWishScreen() {
           <View style={{ paddingTop: insets.top }} className="absolute top-0 left-0 right-0 z-10">
             <View className="flex-row items-center justify-between px-4 py-3">
               <Pressable
-                onPress={() => setShowCamera(false)}
+                onPress={() => hideModal("camera")}
                 className="w-10 h-10 items-center justify-center bg-black/50 rounded-full"
               >
                 <Ionicons name="close" size={24} color="#fff" />
@@ -380,7 +374,7 @@ export default function CreateWishScreen() {
           {/* Image Picker */}
           <Animated.View entering={FadeInDown.delay(100).duration(400)}>
             <Pressable
-              onPress={() => setShowImagePicker(true)}
+              onPress={() => showModal("imagePicker")}
               className="bg-white rounded-2xl overflow-hidden border border-wishy-paleBlush mb-6"
             >
               {image ? (
@@ -558,7 +552,7 @@ export default function CreateWishScreen() {
               <Pressable
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowUserPicker(true);
+                  showModal("userPicker");
                 }}
                 className="bg-white p-4 rounded-xl border border-wishy-paleBlush flex-row items-center justify-between"
               >
@@ -662,7 +656,7 @@ export default function CreateWishScreen() {
         </ScrollView>
 
         {/* Image Picker Modal */}
-        {showImagePicker && (
+        {isVisible("imagePicker") && (
           <Animated.View
             entering={FadeInDown.duration(300)}
             className="absolute inset-0 bg-black/50 justify-end"
@@ -671,7 +665,7 @@ export default function CreateWishScreen() {
               className="flex-1"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowImagePicker(false);
+                hideModal("imagePicker");
               }}
             />
             <View className="bg-wishy-white rounded-t-3xl" style={{ paddingBottom: insets.bottom }}>
@@ -701,7 +695,7 @@ export default function CreateWishScreen() {
         )}
 
         {/* User Picker Modal */}
-        {showUserPicker && (
+        {isVisible("userPicker") && (
           <Animated.View
             entering={FadeInDown.duration(300)}
             className="absolute inset-0 bg-black/50 justify-end"
@@ -710,7 +704,7 @@ export default function CreateWishScreen() {
               className="flex-1"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowUserPicker(false);
+                hideModal("userPicker");
               }}
             />
             <View className="bg-wishy-white rounded-t-3xl" style={{ paddingBottom: insets.bottom }}>
@@ -752,16 +746,10 @@ export default function CreateWishScreen() {
                       key={user.id}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        console.log("=== USER SELECTION ===");
-                        console.log("Selected user name:", user.name);
-                        console.log("Selected user ID:", user.id);
-                        console.log("Selected user email:", user.email);
                         if (isSelected) {
                           setSelectedUserIds(selectedUserIds.filter(id => id !== user.id));
-                          console.log("User DESELECTED");
                         } else {
                           setSelectedUserIds([...selectedUserIds, user.id]);
-                          console.log("User SELECTED - final targetUserIds will include:", user.id);
                         }
                       }}
                       className={cn(
@@ -805,7 +793,7 @@ export default function CreateWishScreen() {
                   <Pressable
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      setShowUserPicker(false);
+                      hideModal("userPicker");
                     }}
                     className="bg-wishy-black py-3 rounded-xl items-center"
                   >

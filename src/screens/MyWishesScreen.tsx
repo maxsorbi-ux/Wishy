@@ -83,14 +83,12 @@ export default function MyWishesScreen() {
   // Sync wishes when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log("MyWishesScreen: Focus - syncing wishes...");
       syncWishes();
     }, [syncWishes])
   );
 
   // Pull to refresh handler
   const onRefresh = useCallback(async () => {
-    console.log("MyWishesScreen: Pull to refresh...");
     setRefreshing(true);
     await syncWishes();
     setRefreshing(false);

@@ -77,7 +77,6 @@ export default function QRCodeScreen() {
         title: "Share Wishy Profile",
       });
     } catch (error) {
-      console.log("Share error:", error);
     }
   };
 

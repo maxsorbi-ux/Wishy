@@ -117,9 +117,6 @@ const supabaseToLocalWish = (dbWish: Record<string, unknown>, recipients?: strin
 const localToSupabaseWish = (wish: Partial<Wish>): Record<string, unknown> => {
   const dbWish: Record<string, unknown> = {};
 
-  console.log("localToSupabaseWish: Input wish targetUserIds:", wish.targetUserIds);
-  console.log("localToSupabaseWish: Input wish targetUserId:", wish.targetUserId);
-  console.log("localToSupabaseWish: Input wish links:", wish.links);
 
   if (wish.title !== undefined) dbWish.title = wish.title;
   if (wish.description !== undefined) dbWish.description = wish.description;
@@ -131,16 +128,13 @@ const localToSupabaseWish = (wish: Partial<Wish>): Record<string, unknown> => {
     const recipientLinks = wish.targetUserIds.map(id => `recipient:${id}`);
     const actualLinks = wish.links || [];
     dbWish.links = [...recipientLinks, ...actualLinks];
-    console.log("localToSupabaseWish: Created links with recipients:", dbWish.links);
   } else if (wish.targetUserId !== undefined) {
     // Backward compatibility: single targetUserId
     const recipientLinks = [`recipient:${wish.targetUserId}`];
     const actualLinks = wish.links || [];
     dbWish.links = [...recipientLinks, ...actualLinks];
-    console.log("localToSupabaseWish: Created links with single recipient:", dbWish.links);
   } else if (wish.links !== undefined) {
     dbWish.links = wish.links;
-    console.log("localToSupabaseWish: Using original links (no recipients):", dbWish.links);
   }
 
   if (wish.status !== undefined) dbWish.status = wish.status;
@@ -206,18 +200,10 @@ const useWishStore = create<WishState>()(
         const id = uuidv4();
         const now = Date.now();
 
-        console.log("=== ADD WISH START ===");
-        console.log("addWish: Creating wish with ID:", id);
-        console.log("addWish: Title:", wishData.title);
-        console.log("addWish: Creator ID:", wishData.creatorId);
-        console.log("addWish: Target User IDs:", wishData.targetUserIds);
-        console.log("addWish: Target User ID (single):", wishData.targetUserId);
-        console.log("addWish: Image:", wishData.image?.substring(0, 50));
 
         // Upload image to Supabase Storage if it's a local file
         let imageUrl = wishData.image;
         if (wishData.image && (wishData.image.startsWith("file://") || wishData.image.startsWith("content://"))) {
-          console.log("addWish: Uploading local image to Supabase Storage...");
           restoreSupabaseSession();
 
           const fileExtension = wishData.image.split(".").pop()?.toLowerCase() || "jpg";
@@ -233,9 +219,7 @@ const useWishStore = create<WishState>()(
 
           if (uploadResult.data?.publicUrl) {
             imageUrl = uploadResult.data.publicUrl;
-            console.log("addWish: Image uploaded successfully:", imageUrl);
           } else {
-            console.log("addWish: Image upload failed:", uploadResult.error?.message);
             // Keep the local URI as fallback, but it won't work for other users
           }
         }
@@ -262,30 +246,23 @@ const useWishStore = create<WishState>()(
           const recipientLinks = wishData.targetUserIds.map(uid => `recipient:${uid}`);
           const existingLinks = (wishData.links || []).filter(l => l && l.trim().length > 0);
           dbWish.links = [...recipientLinks, ...existingLinks];
-          console.log("addWish: Setting links with recipients:", dbWish.links);
         } else if (wishData.targetUserId) {
           const recipientLinks = [`recipient:${wishData.targetUserId}`];
           const existingLinks = (wishData.links || []).filter(l => l && l.trim().length > 0);
           dbWish.links = [...recipientLinks, ...existingLinks];
-          console.log("addWish: Setting links with single recipient:", dbWish.links);
         }
 
-        console.log("addWish: Inserting wish to Supabase with data:", JSON.stringify(dbWish, null, 2));
         const result = await supabaseDb.insert("wishes", dbWish);
 
         if (result.error) {
-          console.log("addWish ERROR: Failed to sync wish to cloud:", result.error.message);
         } else {
-          console.log("addWish: Wish saved to Supabase successfully");
         }
 
         // Send push notifications to recipients
         if (wishData.targetUserIds && wishData.targetUserIds.length > 0) {
-          console.log("addWish: Sending push notifications to", wishData.targetUserIds.length, "recipients");
           const currentUser = useUserStore.getState().currentUser;
           if (currentUser) {
             wishData.targetUserIds.forEach((recipientId) => {
-              console.log("addWish: Sending push notification to:", recipientId);
               sendWishReceivedNotification(
                 recipientId,
                 currentUser.name,
@@ -295,10 +272,8 @@ const useWishStore = create<WishState>()(
             });
           }
         } else {
-          console.log("addWish: No recipients specified");
         }
 
-        console.log("=== ADD WISH COMPLETE ===");
         return id;
       },
 
@@ -306,7 +281,6 @@ const useWishStore = create<WishState>()(
         // Upload image to Supabase Storage if it's a local file
         let processedUpdates = { ...updates };
         if (updates.image && (updates.image.startsWith("file://") || updates.image.startsWith("content://"))) {
-          console.log("updateWish: Uploading local image to Supabase Storage...");
           restoreSupabaseSession();
 
           const currentUser = useUserStore.getState().currentUser;
@@ -323,9 +297,7 @@ const useWishStore = create<WishState>()(
 
           if (uploadResult.data?.publicUrl) {
             processedUpdates.image = uploadResult.data.publicUrl;
-            console.log("updateWish: Image uploaded successfully:", processedUpdates.image);
           } else {
-            console.log("updateWish: Image upload failed:", uploadResult.error?.message);
           }
         }
 
@@ -485,9 +457,6 @@ const useWishStore = create<WishState>()(
         }, { id: wishId });
 
         if (updateResult.error) {
-          console.log("proposeDate ERROR: Failed to update wish in Supabase:", updateResult.error.message);
-          console.log("proposeDate: Date value was:", proposal.date);
-          console.log("proposeDate: Time value was:", proposal.time);
 
           // Revert local state on error
           set((state) => ({
@@ -499,7 +468,6 @@ const useWishStore = create<WishState>()(
           }));
           return;
         } else {
-          console.log("proposeDate: Wish updated successfully in Supabase");
         }
 
         // Send push notification to other party
@@ -567,9 +535,7 @@ const useWishStore = create<WishState>()(
         const updateResult = await supabaseDb.update("wishes", updateData, { id: wishId });
 
         if (updateResult.error) {
-          console.log("confirmDate ERROR: Failed to update wish in Supabase:", updateResult.error.message);
         } else {
-          console.log("confirmDate: Wish status updated to confirmed in Supabase");
 
           // Send push notification to the other party
           const currentUser = useUserStore.getState().currentUser;
@@ -589,10 +555,8 @@ const useWishStore = create<WishState>()(
               recipientIds = [wish.creatorId];
             }
 
-            console.log("confirmDate: Sending push notifications to:", recipientIds);
             recipientIds.forEach((recipientId) => {
               if (recipientId && recipientId !== currentUser.id) {
-                console.log("confirmDate: Sending push notification to:", recipientId);
                 sendDateConfirmedNotification(
                   recipientId,
                   currentUser.name,
@@ -609,16 +573,8 @@ const useWishStore = create<WishState>()(
         const wish = get().wishes.find(w => w.id === wishId);
         const currentUser = useUserStore.getState().currentUser;
 
-        console.log("=== ACCEPT WISH START ===");
-        console.log("acceptWish: Wish ID:", wishId);
-        console.log("acceptWish: Wish title:", wish?.title);
-        console.log("acceptWish: Wish status before:", wish?.status);
-        console.log("acceptWish: Current user:", currentUser?.name);
-        console.log("acceptWish: Current user ID:", currentUser?.id);
-        console.log("acceptWish: Wish creator ID:", wish?.creatorId);
 
         if (!wish) {
-          console.log("acceptWish ERROR: Wish not found");
           return;
         }
 
@@ -633,13 +589,10 @@ const useWishStore = create<WishState>()(
 
         // Update in Supabase
         restoreSupabaseSession();
-        console.log("acceptWish: Calling Supabase update...");
         const updateResult = await supabaseDb.update("wishes", { status: "accepted" }, { id: wishId });
 
-        console.log("acceptWish: Supabase update result:", JSON.stringify(updateResult, null, 2));
 
         if (updateResult.error) {
-          console.log("acceptWish ERROR: Failed to update wish in Supabase:", updateResult.error.message);
           // Revert local state on error
           set((state) => ({
             wishes: state.wishes.map((w) =>
@@ -653,8 +606,6 @@ const useWishStore = create<WishState>()(
 
         // Check if update actually returned data (RLS might silently fail)
         if (!updateResult.data || (Array.isArray(updateResult.data) && updateResult.data.length === 0)) {
-          console.log("acceptWish ERROR: Update returned empty data - likely RLS policy blocking update");
-          console.log("acceptWish: This user might not have permission to update this wish");
           // Revert local state
           set((state) => ({
             wishes: state.wishes.map((w) =>
@@ -666,11 +617,9 @@ const useWishStore = create<WishState>()(
           return;
         }
 
-        console.log("acceptWish: Wish status updated to accepted in Supabase");
 
         // Send push notification to wish creator (only if not self)
         if (currentUser && wish.creatorId !== currentUser.id) {
-          console.log("acceptWish: Sending push notification to creator:", wish.creatorId);
           sendWishAcceptedNotification(
             wish.creatorId,
             currentUser.name,
@@ -679,20 +628,14 @@ const useWishStore = create<WishState>()(
           );
         }
 
-        console.log("=== ACCEPT WISH COMPLETE ===");
       },
 
       declineWish: async (wishId) => {
         const wish = get().wishes.find(w => w.id === wishId);
         const currentUser = useUserStore.getState().currentUser;
 
-        console.log("=== DECLINE WISH START ===");
-        console.log("declineWish: Wish ID:", wishId);
-        console.log("declineWish: Wish title:", wish?.title);
-        console.log("declineWish: Current user:", currentUser?.name);
 
         if (!wish) {
-          console.log("declineWish ERROR: Wish not found");
           return;
         }
 
@@ -710,7 +653,6 @@ const useWishStore = create<WishState>()(
         const updateResult = await supabaseDb.update("wishes", { status: "rejected" }, { id: wishId });
 
         if (updateResult.error) {
-          console.log("declineWish ERROR: Failed to update wish in Supabase:", updateResult.error.message);
           // Revert local state on error
           set((state) => ({
             wishes: state.wishes.map((w) =>
@@ -722,22 +664,14 @@ const useWishStore = create<WishState>()(
           return;
         }
 
-        console.log("declineWish: Wish status updated to rejected in Supabase");
-        console.log("=== DECLINE WISH COMPLETE ===");
       },
 
       fulfillWish: async (wishId, rating, praised, review, ratedBy) => {
         const wish = get().wishes.find(w => w.id === wishId);
         const currentUser = useUserStore.getState().currentUser;
 
-        console.log("=== FULFILL WISH START ===");
-        console.log("fulfillWish: Wish ID:", wishId);
-        console.log("fulfillWish: Wish title:", wish?.title);
-        console.log("fulfillWish: Rating:", rating);
-        console.log("fulfillWish: Current user:", currentUser?.name);
 
         if (!wish) {
-          console.log("fulfillWish ERROR: Wish not found");
           return;
         }
 
@@ -770,7 +704,6 @@ const useWishStore = create<WishState>()(
         }, { id: wishId });
 
         if (updateResult.error) {
-          console.log("fulfillWish ERROR: Failed to update wish in Supabase:", updateResult.error.message);
           // Revert local state on error
           set((state) => ({
             wishes: state.wishes.map((w) =>
@@ -782,7 +715,6 @@ const useWishStore = create<WishState>()(
           return;
         }
 
-        console.log("fulfillWish: Wish status updated to fulfilled in Supabase");
 
         // Send push notification to the other party
         if (currentUser) {
@@ -803,10 +735,8 @@ const useWishStore = create<WishState>()(
             recipientIds = [wish.creatorId];
           }
 
-          console.log("fulfillWish: Sending push notifications to:", recipientIds);
           recipientIds.forEach((recipientId) => {
             if (recipientId && recipientId !== currentUser.id) {
-              console.log("fulfillWish: Sending push notification to:", recipientId);
               sendWishFulfilledNotification(
                 recipientId,
                 currentUser.name,
@@ -818,7 +748,6 @@ const useWishStore = create<WishState>()(
           });
         }
 
-        console.log("=== FULFILL WISH COMPLETE ===");
       },
 
       getUserAverageRating: (userId) => {
@@ -850,47 +779,34 @@ const useWishStore = create<WishState>()(
       syncWishes: async () => {
         const currentUser = useUserStore.getState().currentUser;
         if (!currentUser) {
-          console.log("syncWishes: No current user, skipping sync");
           return;
         }
 
-        console.log("=== SYNC WISHES START ===");
-        console.log("syncWishes: Current user ID:", currentUser.id);
-        console.log("syncWishes: Current user name:", currentUser.name);
-        console.log("syncWishes: Current user email:", currentUser.email);
 
         set({ isSyncing: true });
         restoreSupabaseSession();
 
         try {
           // Fetch wishes created by me
-          console.log("syncWishes: Fetching wishes created by me...");
           const myWishesResult = await supabaseDb.select<Record<string, unknown>[]>("wishes", {
             filter: { creator_id: currentUser.id },
           });
-          console.log("syncWishes: My wishes count:", myWishesResult.data?.length || 0);
           if (myWishesResult.data && myWishesResult.data.length > 0) {
-            console.log("syncWishes: My wishes details:");
             myWishesResult.data.forEach(w => {
               const links = (w.links as string[]) || [];
               const recipients = links.filter(l => l.startsWith("recipient:")).map(l => l.replace("recipient:", ""));
-              console.log(`  - ${w.title} (${w.id})`);
-              console.log(`    Recipients in links: ${recipients.join(", ") || "None"}`);
             });
           }
 
           // Fetch wishes where I am a recipient using links array contains
           const recipientTag = `recipient:${currentUser.id}`;
-          console.log("syncWishes: Fetching wishes where I am recipient via links:", recipientTag);
           const receivedViaLinksResult = await supabaseDb.select<Record<string, unknown>[]>("wishes", {
             rawParams: {
               "links": `cs.{"${recipientTag}"}`,
             },
             limit: 1000,
           });
-          console.log("syncWishes: Received wishes via links array count:", receivedViaLinksResult.data?.length || 0);
           if (receivedViaLinksResult.error) {
-            console.log("syncWishes: Error fetching received wishes:", receivedViaLinksResult.error.message);
           }
 
           // Filter out wishes created by myself
@@ -898,18 +814,12 @@ const useWishStore = create<WishState>()(
             return w.creator_id !== currentUser.id;
           });
 
-          console.log("syncWishes: Received wishes after filtering self:", receivedWishes.length);
           if (receivedWishes.length > 0) {
-            console.log("syncWishes: Received wishes details:");
             receivedWishes.forEach(w => {
               const links = (w.links as string[]) || [];
               const allRecipients = links.filter(l => l.startsWith("recipient:")).map(l => l.replace("recipient:", ""));
-              console.log(`  - ${w.title} (${w.id}) from ${w.creator_id}`);
-              console.log(`    Recipients in links: ${allRecipients.join(", ")}`);
-              console.log(`    Status: ${w.status}`);
             });
           } else {
-            console.log("syncWishes: No wishes found where I am a recipient");
           }
 
           // Combine and convert (removing duplicates)
@@ -918,28 +828,20 @@ const useWishStore = create<WishState>()(
           // Remove duplicates by ID
           const uniqueWishes = Array.from(new Map(allDbWishes.map(w => [w.id, w])).values());
 
-          console.log("syncWishes: Total unique wishes from Supabase:", uniqueWishes.length);
           const cloudWishes = uniqueWishes.map(w => supabaseToLocalWish(w));
 
           // Log the final state
-          console.log("syncWishes: Final cloud wishes breakdown:");
-          console.log(`  - Created by me: ${cloudWishes.filter(w => w.creatorId === currentUser.id).length}`);
-          console.log(`  - Received by me: ${cloudWishes.filter(w => w.targetUserIds?.includes(currentUser.id) && w.creatorId !== currentUser.id).length}`);
 
           // IMPORTANT: Only keep sample wishes, replace everything else with cloud data
           // Supabase is the source of truth - no local wishes should persist
           set((state) => {
             const sampleWishes = state.wishes.filter(w => w.id.startsWith("sample-"));
-            console.log("syncWishes: Sample wishes:", sampleWishes.length);
-            console.log("syncWishes: Cloud wishes:", cloudWishes.length);
             return {
               wishes: [...sampleWishes, ...cloudWishes],
               isSyncing: false,
             };
           });
-          console.log("=== SYNC WISHES COMPLETE ===");
         } catch (error) {
-          console.log("Sync error:", error);
           set({ isSyncing: false });
         }
       },
@@ -977,11 +879,9 @@ const useWishStore = create<WishState>()(
       debugClearAllWishes: async () => {
         const currentUser = useUserStore.getState().currentUser;
         if (!currentUser) {
-          console.log("debugClearAllWishes: No current user");
           return;
         }
 
-        console.log("=== DEBUG: CLEARING ALL WISHES ===");
         restoreSupabaseSession();
 
         try {
@@ -991,17 +891,14 @@ const useWishStore = create<WishState>()(
           });
 
           const wishIds = myWishesResult.data?.map(w => w.id as string) || [];
-          console.log("Found", wishIds.length, "wishes to delete");
 
           // Delete wish_recipients first (foreign key constraint)
           for (const wishId of wishIds) {
-            console.log("Deleting recipients for wish:", wishId);
             await supabaseDb.delete("wish_recipients", { wish_id: wishId });
           }
 
           // Delete wishes
           for (const wishId of wishIds) {
-            console.log("Deleting wish:", wishId);
             await supabaseDb.delete("wishes", { id: wishId });
           }
 
@@ -1012,9 +909,7 @@ const useWishStore = create<WishState>()(
             myPortfolio: [],
           }));
 
-          console.log("=== DEBUG: ALL WISHES CLEARED ===");
         } catch (error) {
-          console.log("debugClearAllWishes ERROR:", error);
         }
       },
     }),

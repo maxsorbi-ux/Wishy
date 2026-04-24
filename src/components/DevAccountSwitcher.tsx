@@ -42,25 +42,19 @@ export default function DevAccountSwitcher() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      console.log("=== DEV SWITCH ACCOUNT ===");
-      console.log("Switching to:", account.name);
 
       const success = await login(account.email, account.password);
 
       if (success) {
-        console.log("Login successful, syncing data...");
         // Sync all data for new account
         await Promise.all([
           syncWishes(),
           syncConnections(),
           syncNotifications(),
         ]);
-        console.log("=== DEV SWITCH COMPLETE ===");
       } else {
-        console.log("Login failed for:", account.email);
       }
     } catch (error) {
-      console.log("Switch account error:", error);
     } finally {
       setIsLoading(false);
       setShowModal(false);

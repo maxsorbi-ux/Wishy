@@ -216,21 +216,16 @@ const useUserStore = create<AuthState>()(
         const { currentUser, supabaseSession } = get();
         if (!currentUser) return;
 
-        console.log("=== UPDATE USER START ===");
-        console.log("updateUser: Updates received:", Object.keys(updates));
 
         // Restore session for API calls
         if (supabaseSession) {
           setSession(supabaseSession);
-          console.log("updateUser: Session restored");
         } else {
-          console.log("updateUser: WARNING - No session available!");
         }
 
         // Handle profile photo upload to Supabase Storage
         let processedUpdates = { ...updates };
         if (updates.profilePhoto) {
-          console.log("updateUser: Profile photo URI:", updates.profilePhoto.substring(0, 100));
 
           // Check if it's a local file (not already a Supabase URL)
           const isLocalFile = updates.profilePhoto.startsWith("file://") ||
@@ -238,15 +233,12 @@ const useUserStore = create<AuthState>()(
                              updates.profilePhoto.startsWith("/") ||
                              !updates.profilePhoto.startsWith("http");
 
-          console.log("updateUser: Is local file:", isLocalFile);
 
           if (isLocalFile) {
             try {
-              console.log("updateUser: Uploading profile photo to Supabase...");
               // Read the file and upload to Supabase Storage
               const response = await fetch(updates.profilePhoto);
               const blob = await response.blob();
-              console.log("updateUser: Blob created, size:", blob.size);
 
               // Generate unique filename
               const fileExt = updates.profilePhoto.split(".").pop()?.toLowerCase() || "jpg";
@@ -254,7 +246,6 @@ const useUserStore = create<AuthState>()(
               const fileName = `${currentUser.id}_${Date.now()}.${validExt}`;
               const filePath = `${fileName}`;
 
-              console.log("updateUser: Uploading to path:", filePath);
 
               // Upload to Supabase Storage
               const uploadResult = await supabaseStorage.upload(
@@ -268,49 +259,35 @@ const useUserStore = create<AuthState>()(
                 // Get the public URL
                 const publicUrl = supabaseStorage.getPublicUrl("avatar", filePath);
                 processedUpdates.profilePhoto = publicUrl;
-                console.log("updateUser: Profile photo uploaded successfully:", publicUrl);
               } else {
-                console.log("updateUser: Failed to upload profile photo:", uploadResult.error.message);
                 // Still save locally but photo won't persist across sessions
               }
             } catch (error) {
-              console.log("updateUser: Error uploading profile photo:", error);
               // Still save locally but photo won't persist across sessions
             }
           } else {
-            console.log("updateUser: Photo is already a remote URL, no upload needed");
           }
         }
 
         // Update locally immediately for responsiveness
-        console.log("updateUser: Updating local state...");
         const updatedUser = { ...currentUser, ...processedUpdates };
         set({
           currentUser: updatedUser,
           allUsers: get().allUsers.map((u) => (u.id === currentUser.id ? updatedUser : u)),
         });
-        console.log("updateUser: Local state updated, profilePhoto:", updatedUser.profilePhoto?.substring(0, 80));
 
         // Sync to Supabase
         const profileData = userToProfile(processedUpdates);
-        console.log("updateUser: Profile data to sync:", Object.keys(profileData));
 
         if (Object.keys(profileData).length > 0) {
           try {
-            console.log("updateUser: Syncing to Supabase profiles table...");
             const updateResult = await supabaseDb.update("profiles", profileData, { id: currentUser.id });
             if (updateResult.error) {
-              console.log("updateUser: ERROR updating profile in Supabase:", updateResult.error.message);
             } else {
-              console.log("updateUser: Profile updated successfully in Supabase");
-              console.log("=== UPDATE USER COMPLETE ===");
             }
           } catch (error) {
-            console.log("updateUser: EXCEPTION updating profile:", error);
           }
         } else {
-          console.log("updateUser: No profile data to sync");
-          console.log("=== UPDATE USER COMPLETE ===");
         }
       },
 
@@ -363,28 +340,22 @@ const useUserStore = create<AuthState>()(
         }
 
         try {
-          console.log("fetchAllUsers: Starting fetch from Supabase...");
 
           const result = await supabaseDb.select<Record<string, unknown>[]>("profiles");
 
           if (result.error) {
-            console.log("fetchAllUsers ERROR:", result.error);
             return;
           }
 
-          console.log("fetchAllUsers: Raw Supabase response count:", result.data?.length || 0);
 
           if (result.data && result.data.length > 0) {
             const supabaseUsers = result.data.map(profileToUser);
 
-            console.log("fetchAllUsers SUCCESS - Fetched users count:", supabaseUsers.length);
-            console.log("fetchAllUsers - All user names:", supabaseUsers.map(u => u.name).join(", "));
 
             // Update current user with latest Supabase data if they exist in the list
             if (currentUser) {
               const updatedCurrentUser = supabaseUsers.find(u => u.id === currentUser.id);
               if (updatedCurrentUser) {
-                console.log("fetchAllUsers: Updating current user with Supabase data");
                 set({ currentUser: updatedCurrentUser });
               }
             }
@@ -392,18 +363,15 @@ const useUserStore = create<AuthState>()(
             // Use Supabase data as the only source of truth
             set({ allUsers: supabaseUsers });
           } else {
-            console.log("fetchAllUsers: No users found in Supabase");
             set({ allUsers: [] });
           }
         } catch (error) {
-          console.log("fetchAllUsers EXCEPTION:", error);
         }
       },
 
       restoreSession: async () => {
         const { supabaseSession, isLoggedIn } = get();
 
-        console.log("restoreSession: Starting...", { hasSession: !!supabaseSession, isLoggedIn });
 
         if (supabaseSession) {
           setSession(supabaseSession);
@@ -412,7 +380,6 @@ const useUserStore = create<AuthState>()(
           const refreshResult = await supabaseAuth.refreshSession();
 
           if (refreshResult.data) {
-            console.log("restoreSession: Session refreshed successfully");
             set({
               supabaseSession: {
                 access_token: refreshResult.data.access_token,
@@ -423,13 +390,10 @@ const useUserStore = create<AuthState>()(
             // Fetch user profile from Supabase (not from local storage)
             const userResult = await supabaseAuth.getUser();
             if (userResult.data) {
-              console.log("restoreSession: Fetching user profile from Supabase for:", userResult.data.id);
               const user = await get().fetchUserProfile(userResult.data.id);
               if (user) {
-                console.log("restoreSession: User profile loaded:", user.name);
                 set({ currentUser: user, isLoggedIn: true });
               } else {
-                console.log("restoreSession: User profile not found in Supabase");
                 set({ currentUser: null, isLoggedIn: false });
               }
             }
@@ -438,7 +402,6 @@ const useUserStore = create<AuthState>()(
             await get().fetchAllUsers();
           } else {
             // Session expired, logout
-            console.log("restoreSession: Session expired");
             set({
               currentUser: null,
               isLoggedIn: false,
@@ -447,7 +410,6 @@ const useUserStore = create<AuthState>()(
           }
         } else if (isLoggedIn) {
           // isLoggedIn is true but no session - clear stale state
-          console.log("restoreSession: No session but isLoggedIn=true, clearing state");
           set({
             currentUser: null,
             isLoggedIn: false,

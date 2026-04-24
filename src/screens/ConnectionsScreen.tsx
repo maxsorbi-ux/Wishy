@@ -13,6 +13,7 @@ import useUserStore from "../state/userStore";
 import { useToastStore } from "../state/toastStore";
 import { Connection, User, ContactRequest, ConnectionType } from "../types/wishy";
 import { cn } from "../utils/cn";
+import { useModalState } from "../hooks/useModalState";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -40,7 +41,6 @@ export default function ConnectionsScreen() {
   // Sync connections when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log("ConnectionsScreen: Focus - syncing data...");
       syncConnections();
       fetchAllUsers();
     }, [])
@@ -48,16 +48,11 @@ export default function ConnectionsScreen() {
 
   // Pull to refresh handler
   const onRefresh = useCallback(async () => {
-    console.log("ConnectionsScreen: Pull to refresh...");
-    console.log("Current user ID:", currentUser?.id);
-    console.log("Current user name:", currentUser?.name);
     setRefreshing(true);
     await Promise.all([syncConnections(), fetchAllUsers()]);
     // Get the updated allUsers after fetch
     const updatedUsers = useUserStore.getState().allUsers;
-    console.log("ConnectionsScreen: Refresh complete. allUsers count:", updatedUsers.length);
     if (updatedUsers.length > 0) {
-      console.log("All users after refresh:", updatedUsers.map(u => ({ id: u.id, name: u.name })));
     }
     setRefreshing(false);
   }, [currentUser?.id, currentUser?.name]);
@@ -81,11 +76,7 @@ export default function ConnectionsScreen() {
 
   // Log search results when searching
   if (searchQuery.trim()) {
-    console.log("Search query:", searchQuery);
-    console.log("Total allUsers:", allUsers.length);
-    console.log("Search results count:", searchResults.length);
     if (allUsers.length > 0) {
-      console.log("All users names:", allUsers.map(u => u.name).join(", "));
     }
   }
 
@@ -104,12 +95,10 @@ export default function ConnectionsScreen() {
 
   const handleConnectUser = async (targetUserId: string) => {
     if (!currentUser) {
-      console.log("handleConnectUser: No current user");
       showToast("Please login first", "error");
       return;
     }
 
-    console.log("handleConnectUser: Sending request from", currentUser.id, "to", targetUserId);
 
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -119,7 +108,6 @@ export default function ConnectionsScreen() {
       // Sync to update the UI
       await syncConnections();
     } catch (error) {
-      console.log("handleConnectUser ERROR:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showToast(
         error instanceof Error ? error.message : "Failed to send request",
@@ -438,11 +426,11 @@ function ContactRequestCard({
   const getConnectionBetweenUsers = useConnectionStore((s) => s.getConnectionBetweenUsers);
   const currentUser = useUserStore((s) => s.currentUser);
   const showToast = useToastStore((s) => s.showToast);
-  const [showTypeModal, setShowTypeModal] = useState(false);
+  const { show: showModal, hide: hideModal, isVisible } = useModalState("type");
 
   const handleAccept = async (connectionType: ConnectionType) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setShowTypeModal(false);
+    hideModal("type");
 
     // Accept the request (creates connection as "friend" by default)
     await acceptContactRequest(request.id);
@@ -518,7 +506,7 @@ function ContactRequestCard({
           <Pressable
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowTypeModal(true);
+              showModal("type");
             }}
             className="w-10 h-10 bg-wishy-black rounded-full items-center justify-center"
           >
@@ -529,13 +517,13 @@ function ContactRequestCard({
 
       {/* Connection Type Selection Modal */}
       <Modal
-        visible={showTypeModal}
+        visible={isVisible("type")}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowTypeModal(false)}
+        onRequestClose={() => hideModal("type")}
       >
         <Pressable
-          onPress={() => setShowTypeModal(false)}
+          onPress={() => hideModal("type")}
           className="flex-1 bg-black/50 justify-center items-center px-6"
         >
           <Pressable onPress={(e) => e.stopPropagation()}>
@@ -590,7 +578,7 @@ function ContactRequestCard({
 
               {/* Cancel Button */}
               <Pressable
-                onPress={() => setShowTypeModal(false)}
+                onPress={() => hideModal("type")}
                 className="p-4 border-t border-wishy-paleBlush"
               >
                 <Text className="text-wishy-gray font-semibold text-center">Cancel</Text>

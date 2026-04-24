@@ -43,19 +43,12 @@ export default function ManageConnectionScreen() {
   const pendingUpgradeRequestBetweenUsers = currentUser ? getPendingUpgradeRequestBetweenUsers(currentUser.id, userId) : undefined;
   const pendingUpgradeRequest = pendingUpgradeRequestByConnection || pendingUpgradeRequestBetweenUsers;
 
-  console.log("ManageConnectionScreen: currentUser.id =", currentUser?.id);
-  console.log("ManageConnectionScreen: userId (other user) =", userId);
-  console.log("ManageConnectionScreen: connection.id =", connection?.id);
-  console.log("ManageConnectionScreen: pendingUpgradeRequestByConnection =", pendingUpgradeRequestByConnection?.id || "none");
-  console.log("ManageConnectionScreen: pendingUpgradeRequestBetweenUsers =", pendingUpgradeRequestBetweenUsers?.id || "none");
-  console.log("ManageConnectionScreen: final pendingUpgradeRequest =", pendingUpgradeRequest?.id || "none");
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Sync connections when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log("ManageConnectionScreen: Focus - syncing connections...");
       syncConnections();
     }, [syncConnections])
   );

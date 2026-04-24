@@ -90,18 +90,15 @@ export default function ChatScreen() {
 
   // Sync chats from Supabase when entering the screen
   useEffect(() => {
-    console.log("ChatScreen: Syncing chats from Supabase...");
     syncChats();
   }, [syncChats]);
 
   // Subscribe to real-time messages when chat exists
   useEffect(() => {
     if (chat?.id) {
-      console.log("ChatScreen: Subscribing to real-time messages for chat:", chat.id);
       subscribeToMessages(chat.id);
 
       return () => {
-        console.log("ChatScreen: Unsubscribing from messages");
         unsubscribeFromMessages();
       };
     }
@@ -110,7 +107,6 @@ export default function ChatScreen() {
   // Additional fast polling while screen is focused for more responsive updates
   useFocusEffect(
     useCallback(() => {
-      console.log("ChatScreen: Setting up fast polling...");
 
       // Poll every 2 seconds while screen is active
       pollIntervalRef.current = setInterval(() => {
@@ -120,7 +116,6 @@ export default function ChatScreen() {
       }, 2000);
 
       return () => {
-        console.log("ChatScreen: Clearing fast polling");
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
@@ -151,7 +146,6 @@ export default function ChatScreen() {
       // addMessage already handles both in-app and push notifications to other participants
       await addMessage(chat.id, currentUser.id, messageText);
     } catch (error) {
-      console.log("Error sending message:", error);
       setMessage(messageText); // Restore message on error
     } finally {
       setIsSending(false);

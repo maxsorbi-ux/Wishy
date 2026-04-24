@@ -33,34 +33,30 @@ export default function DiscoveryScreen() {
   const [selectedCategory, setSelectedCategory] = useState<WishCategory | "all">("all");
   const [refreshing, setRefreshing] = useState(false);
 
-  // Compute received wishes locally - will update immediately when wishes change
   const userId = currentUser?.id || "";
-  const receivedWishes = wishes.filter((wish) => {
+
+  const receivedWishes = React.useMemo(() => wishes.filter((wish) => {
     const isTargetedToMe =
       wish.targetUserId === userId ||
       (wish.targetUserIds && wish.targetUserIds.includes(userId));
+    return isTargetedToMe && wish.creatorId !== userId && !hiddenWishes.includes(wish.id);
+  }), [wishes, hiddenWishes, userId]);
 
-    return (
-      isTargetedToMe &&
-      wish.creatorId !== userId &&
-      !hiddenWishes.includes(wish.id)
-    );
-  });
-
-  const filteredWishes = selectedCategory === "all"
-    ? receivedWishes
-    : receivedWishes.filter((w) => w.category === selectedCategory);
+  const filteredWishes = React.useMemo(() =>
+    selectedCategory === "all"
+      ? receivedWishes
+      : receivedWishes.filter((w) => w.category === selectedCategory),
+    [receivedWishes, selectedCategory]
+  );
 
   // Sync wishes when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log("DiscoveryScreen: Focus - syncing wishes...");
       syncWishes();
     }, [syncWishes])
   );
 
   const onRefresh = useCallback(async () => {
-    console.log("DiscoveryScreen: Pull to refresh...");
     setRefreshing(true);
     await syncWishes();
     setRefreshing(false);

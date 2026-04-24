@@ -49,7 +49,6 @@ export default function NotificationsScreen() {
   // Sync connections and notifications when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      console.log("NotificationsScreen: Syncing connections, users, and notifications...");
       syncConnections();
       fetchAllUsers();
       syncNotifications();
@@ -60,10 +59,8 @@ export default function NotificationsScreen() {
 
   // Pull to refresh handler
   const onRefresh = useCallback(async () => {
-    console.log("NotificationsScreen: Pull to refresh...");
     setRefreshing(true);
     await Promise.all([syncConnections(), fetchAllUsers(), syncNotifications()]);
-    console.log("NotificationsScreen: Refresh complete. Contact requests:", contactRequests.length);
     setRefreshing(false);
   }, [syncConnections, fetchAllUsers, syncNotifications]);
 
@@ -76,20 +73,15 @@ export default function NotificationsScreen() {
 
   const handleAcceptRequest = async (connectionType: ConnectionType) => {
     if (!selectedRequestId || !currentUser) {
-      console.log("Missing selectedRequestId or currentUser");
       return;
     }
 
-    console.log("=== ACCEPTING REQUEST FROM UI ===");
-    console.log("Request ID:", selectedRequestId);
-    console.log("Connection type:", connectionType);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowTypeModal(false);
 
     try {
       // Accept the request with the specified connection type directly
       await acceptContactRequest(selectedRequestId, connectionType);
-      console.log("Contact request accepted successfully with type:", connectionType);
 
       showToast(
         connectionType === "relationship"
@@ -99,9 +91,7 @@ export default function NotificationsScreen() {
 
       // Sync to get all the latest data
       await syncConnections();
-      console.log("=== REQUEST ACCEPTED SUCCESSFULLY ===");
     } catch (error) {
-      console.log("ERROR accepting request:", error);
       const errorMessage = error instanceof Error ? error.message : "Errore nell'accettare la richiesta";
       showToast(errorMessage, "error");
     }
@@ -118,7 +108,6 @@ export default function NotificationsScreen() {
   };
 
   const handleNotificationPress = async(notificationId: string, type: string, relatedId?: string) => {
-    console.log("handleNotificationPress called:", { notificationId, type, relatedId });
 
     const wissiDD = getChatByUser(currentUser?.id).find(i => i.id === relatedId)
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -127,28 +116,21 @@ export default function NotificationsScreen() {
 
     // Navigate based on notification type
     if (!relatedId) {
-      console.log("No relatedId, returning");
       return;
     }
 
     switch (type) {
       case "connection_request":
         // For connection requests, check if there is a pending request and show the accept modal
-        console.log("Looking for pending request with ID:", relatedId);
-        console.log("Current contactRequests:", contactRequests.map(r => ({ id: r.id, status: r.status, senderId: r.senderId })));
         const pendingRequest = findPendingContactRequest(relatedId);
-        console.log("Found pending request:", pendingRequest);
         if (pendingRequest) {
           const sender = allUsers.find((u) => u.id === pendingRequest.senderId);
-          console.log("Found sender:", sender?.name);
           setSelectedRequestId(relatedId);
           setSelectedSenderId(pendingRequest.senderId);
           setSelectedSenderName(sender?.name || "this person");
-          console.log("Opening modal...");
           setShowTypeModal(true);
         } else {
           // Request already handled, go to connections
-          console.log("No pending request found, navigating to Connections");
           navigation.navigate("MainTabs", { screen: "Connections" });
         }
         break;

@@ -499,7 +499,6 @@ export const supabaseRealtime = {
           lastData = newData;
         }
       } catch (error) {
-        console.log("Realtime polling error:", error);
       }
 
       // Poll every 1 second for faster updates
@@ -571,13 +570,11 @@ export const supabaseStorage = {
     contentType: string = "image/jpeg"
   ): Promise<SupabaseResponse<{ path: string; publicUrl: string }>> => {
     try {
-      console.log("uploadFromUri: Starting upload from", localUri.substring(0, 50) + "...");
 
       // Fetch the local file
       const response = await fetch(localUri);
       const blob = await response.blob();
 
-      console.log("uploadFromUri: Blob size:", blob.size);
 
       const url = `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`;
 
@@ -595,16 +592,13 @@ export const supabaseStorage = {
 
       if (!uploadResponse.ok) {
         const errorData = await uploadResponse.json();
-        console.log("uploadFromUri ERROR:", errorData);
         return { data: null, error: { message: errorData.message || errorData.error || "Upload failed" } };
       }
 
       const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
-      console.log("uploadFromUri: Success, public URL:", publicUrl);
 
       return { data: { path, publicUrl }, error: null };
     } catch (error) {
-      console.log("uploadFromUri ERROR:", error);
       return { data: null, error: { message: (error as Error).message } };
     }
   },
