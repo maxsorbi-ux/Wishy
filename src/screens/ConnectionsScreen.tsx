@@ -57,20 +57,26 @@ export default function ConnectionsScreen() {
     setRefreshing(false);
   }, [currentUser?.id, currentUser?.name]);
 
-  // Filter users based on search query only (removed preference filters for simplicity)
-  // This ensures all users can find each other regardless of preference settings
   const searchResults = searchQuery.trim()
     ? allUsers.filter((user) => {
-        // Don't show current user in search
         if (user.id === currentUser?.id) return false;
 
-        // Check if the search query matches name or email
-        const query = searchQuery.toLowerCase();
-        const matchesQuery =
-          user.name.toLowerCase().includes(query) ||
-          user.email.toLowerCase().includes(query);
+        const prefs = currentUser?.searchPreferences;
 
-        return matchesQuery;
+        if (prefs) {
+          if (prefs.roles.length > 0 && !prefs.roles.includes(user.role)) return false;
+          if (prefs.genders.length > 0 && (!user.gender || !prefs.genders.includes(user.gender))) return false;
+          if (
+            prefs.relationshipPreferences.length > 0 &&
+            (!user.relationshipPreference || !prefs.relationshipPreferences.includes(user.relationshipPreference))
+          ) return false;
+        }
+
+        const query = searchQuery.toLowerCase();
+        return (
+          user.name.toLowerCase().includes(query) ||
+          user.email.toLowerCase().includes(query)
+        );
       })
     : [];
 

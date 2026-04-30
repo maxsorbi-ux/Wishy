@@ -25,7 +25,7 @@ export default function NotificationsScreen() {
   const currentUser = useUserStore((s) => s.currentUser);
   const allUsers = useUserStore((s) => s.allUsers);
   const fetchAllUsers = useUserStore((s) => s.fetchAllUsers);
-  const getNotificationsForUser = useNotificationStore((s) => s.getNotificationsForUser);
+  const allNotificationsRaw = useNotificationStore((s) => s.notifications);
   const syncNotifications = useNotificationStore((s) => s.syncNotifications);
   const markAsRead = useNotificationStore((s) => s.markAsRead);
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead);
@@ -43,7 +43,14 @@ export default function NotificationsScreen() {
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
   const [selectedSenderName, setSelectedSenderName] = useState<string>("");
 
-  const notifications = getNotificationsForUser(currentUser?.id || "");
+  const userId = currentUser?.id || "";
+  const notifications = React.useMemo(
+    () =>
+      allNotificationsRaw
+        .filter((n) => n.userId === userId)
+        .sort((a, b) => b.createdAt - a.createdAt),
+    [allNotificationsRaw, userId]
+  );
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Sync connections and notifications when screen comes into focus
@@ -109,7 +116,7 @@ export default function NotificationsScreen() {
 
   const handleNotificationPress = async(notificationId: string, type: string, relatedId?: string) => {
 
-    const wissiDD = getChatByUser(currentUser?.id).find(i => i.id === relatedId)
+    const wissiDD = getChatByUser(currentUser?.id ?? "").find(i => i.id === relatedId)
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     markAsRead(notificationId);
 
@@ -158,12 +165,11 @@ export default function NotificationsScreen() {
       case "date_proposed":
       case "date_changed":
       case "date_confirmed":
-        navigation.navigate("Chat", { wishId: wissiDD?.wishId });
+        navigation.navigate("Chat", { wishId: wissiDD?.wishId ?? "" });
         break;
 
       default:
-        // Fallback to wish detail if we have an ID
-        navigation.navigate("Chat", { wishId: wissiDD?.wishId});
+        navigation.navigate("Chat", { wishId: wissiDD?.wishId ?? "" });
     }
   };
 

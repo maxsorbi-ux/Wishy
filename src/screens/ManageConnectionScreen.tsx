@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, Pressable, ScrollView, Alert } from "react-native";
+import { View, Text, Pressable, ScrollView, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -45,6 +45,9 @@ export default function ManageConnectionScreen() {
 
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   // Sync connections when screen comes into focus
   useFocusEffect(
@@ -94,40 +97,31 @@ export default function ManageConnectionScreen() {
 
   const handleRemoveConnection = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      "Remove Connection",
-      `Are you sure you want to remove ${otherUser.name} from your connections?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => {
-            deleteConnection(connection.id);
-            navigation.goBack();
-          },
-        },
-      ]
-    );
+    setShowRemoveModal(true);
+  };
+
+  const confirmRemoveConnection = async () => {
+    setIsRemoving(true);
+    try {
+      await deleteConnection(connection.id);
+      showToast(`${otherUser.name} removed from connections`);
+    } finally {
+      setIsRemoving(false);
+      setShowRemoveModal(false);
+      navigation.goBack();
+    }
   };
 
   const handleBlockUser = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert(
-      "Block User",
-      `Are you sure you want to block ${otherUser.name}? This will remove the connection and prevent them from contacting you.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Block",
-          style: "destructive",
-          onPress: () => {
-            blockUser(currentUser.id, otherUser.id);
-            navigation.goBack();
-          },
-        },
-      ]
-    );
+    setShowBlockModal(true);
+  };
+
+  const confirmBlockUser = async () => {
+    await blockUser(currentUser.id, otherUser.id);
+    setShowBlockModal(false);
+    showToast(`${otherUser.name} has been blocked`);
+    navigation.goBack();
   };
 
   return (
@@ -303,6 +297,63 @@ export default function ManageConnectionScreen() {
           </View>
         </Animated.View>
       </ScrollView>
+
+      {/* Remove Connection Modal */}
+      <Modal transparent visible={showRemoveModal} animationType="fade" onRequestClose={() => setShowRemoveModal(false)}>
+        <Pressable className="flex-1 bg-black/50 items-center justify-center px-6" onPress={() => setShowRemoveModal(false)}>
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <View className="bg-white rounded-3xl p-6 w-full max-w-sm">
+              <View className="items-center mb-4">
+                <View className="w-14 h-14 bg-red-100 rounded-full items-center justify-center mb-3">
+                  <Ionicons name="remove-circle-outline" size={28} color="#DC2626" />
+                </View>
+                <Text className="text-wishy-black font-bold text-xl mb-2">Remove Connection</Text>
+                <Text className="text-wishy-gray text-center text-sm">
+                  {"Are you sure you want to remove " + otherUser.name + " from your connections?"}
+                </Text>
+              </View>
+              <Pressable
+                onPress={confirmRemoveConnection}
+                disabled={isRemoving}
+                className="bg-red-500 rounded-xl py-3 items-center mb-3 active:opacity-80"
+              >
+                <Text className="text-white font-bold">{isRemoving ? "Removing..." : "Remove"}</Text>
+              </Pressable>
+              <Pressable onPress={() => setShowRemoveModal(false)} className="py-3 items-center active:opacity-70">
+                <Text className="text-wishy-gray font-medium">Cancel</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Block User Modal */}
+      <Modal transparent visible={showBlockModal} animationType="fade" onRequestClose={() => setShowBlockModal(false)}>
+        <Pressable className="flex-1 bg-black/50 items-center justify-center px-6" onPress={() => setShowBlockModal(false)}>
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <View className="bg-white rounded-3xl p-6 w-full max-w-sm">
+              <View className="items-center mb-4">
+                <View className="w-14 h-14 bg-red-100 rounded-full items-center justify-center mb-3">
+                  <Ionicons name="ban-outline" size={28} color="#DC2626" />
+                </View>
+                <Text className="text-wishy-black font-bold text-xl mb-2">Block User</Text>
+                <Text className="text-wishy-gray text-center text-sm">
+                  {"This will remove " + otherUser.name + " and prevent them from contacting you."}
+                </Text>
+              </View>
+              <Pressable
+                onPress={confirmBlockUser}
+                className="bg-red-500 rounded-xl py-3 items-center mb-3 active:opacity-80"
+              >
+                <Text className="text-white font-bold">Block</Text>
+              </Pressable>
+              <Pressable onPress={() => setShowBlockModal(false)} className="py-3 items-center active:opacity-70">
+                <Text className="text-wishy-gray font-medium">Cancel</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Upgrade Modal */}
       {showUpgradeModal && (

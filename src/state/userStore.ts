@@ -51,9 +51,15 @@ const profileToUser = (profile: Record<string, unknown>): User => {
     photoGallery: (profile.gallery as string[]) || [],
     socialLinks: profile.social_links as User["socialLinks"],
     privacySettings: (profile.privacy_settings as User["privacySettings"]) || {
-      showAge: true,
-      showLocation: true,
-      showGallery: "connections",
+      email: "public",
+      bio: "public",
+      location: "public",
+      ageAndGender: "public",
+      relationshipPreferences: "public",
+      interests: "public",
+      wishList: "public",
+      wishPortfolio: "public",
+      calendar: "public",
     },
     searchPreferences: profile.search_preferences as User["searchPreferences"],
   };
@@ -115,9 +121,15 @@ const useUserStore = create<AuthState>()(
             name,
             role,
             privacy_settings: {
-              showAge: false,
-              showLocation: true,
-              galleryVisibility: "connections",
+              email: "public",
+              bio: "public",
+              location: "public",
+              ageAndGender: "public",
+              relationshipPreferences: "public",
+              interests: "public",
+              wishList: "public",
+              wishPortfolio: "public",
+              calendar: "public",
             },
           }, { id: userId });
 

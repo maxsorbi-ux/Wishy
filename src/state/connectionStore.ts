@@ -472,12 +472,34 @@ const useConnectionStore = create<ConnectionState>()(
       },
 
       deleteConnection: async (connectionId) => {
+        const connection = get().connections.find((c) => c.id === connectionId);
+
         set((state) => ({
           connections: state.connections.filter((conn) => conn.id !== connectionId),
+          contactRequests: state.contactRequests.filter(
+            (req) =>
+              !(
+                req.status === "accepted" &&
+                connection &&
+                ((req.senderId === connection.senderId && req.receiverId === connection.receiverId) ||
+                  (req.senderId === connection.receiverId && req.receiverId === connection.senderId))
+              )
+          ),
         }));
 
         restoreSupabaseSession();
         await supabaseDb.delete("connections", { id: connectionId });
+
+        if (connection) {
+          await supabaseDb.delete("connection_requests", {
+            from_user_id: connection.senderId,
+            to_user_id: connection.receiverId,
+          });
+          await supabaseDb.delete("connection_requests", {
+            from_user_id: connection.receiverId,
+            to_user_id: connection.senderId,
+          });
+        }
       },
 
       getConnectionsForUser: (userId) => {
@@ -887,8 +909,10 @@ const useConnectionStore = create<ConnectionState>()(
             }
           }
 
-          // FIX: Check for accepted requests that don't have a corresponding connection
-          // This handles the case where the connection was not created properly when accepting
+          // Check for accepted requests that don't have a corresponding connection.
+          // Only recreate if both users still have the request in DB (not intentionally deleted).
+          // We use the DB-fetched supabaseContactRequests here — if the request was deleted
+          // by deleteConnection, it won't be in this list and no recreation happens.
           const acceptedRequests = supabaseContactRequests.filter(r => r.status === "accepted");
 
           for (const acceptedReq of acceptedRequests) {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { View, Text, Pressable, ScrollView, Linking, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -24,6 +24,7 @@ export default function UserProfileScreen() {
 
   const allUsers = useUserStore((s) => s.allUsers);
   const currentUser = useUserStore((s) => s.currentUser);
+  const fetchUserProfile = useUserStore((s) => s.fetchUserProfile);
   const wishes = useWishStore((s) => s.wishes);
   const hiddenWishes = useWishStore((s) => s.hiddenWishes);
   const getUserAverageRating = useWishStore((s) => s.getUserAverageRating);
@@ -35,6 +36,10 @@ export default function UserProfileScreen() {
 
   const user = allUsers.find((u) => u.id === route.params.userId);
 
+  useEffect(() => {
+    fetchUserProfile(route.params.userId);
+  }, [route.params.userId]);
+
   // Check if users are connected
   const isConnected = useMemo(() => {
     if (!currentUser || !user) return false;
@@ -43,6 +48,36 @@ export default function UserProfileScreen() {
       (conn) => conn.senderId === user.id || conn.receiverId === user.id
     );
   }, [currentUser, user, getAcceptedConnections]);
+
+
+  // Check if users are in a relationship
+  const isRelationship = useMemo(() => {
+    if (!currentUser || !user) return false;
+    const connections = getAcceptedConnections(currentUser.id);
+    return connections.some(
+      (conn) =>
+        conn.type === "relationship" &&
+        (conn.senderId === user.id || conn.receiverId === user.id)
+    );
+  }, [currentUser, user, getAcceptedConnections]);
+
+  console.log('aaa', isConnected )
+
+  console.log('22222', user?.privacySettings)
+
+
+  const canView = (field: keyof NonNullable<typeof user>["privacySettings"]): boolean => {
+    if (!user) return false;
+    const ps = user.privacySettings;
+    if (!ps) return true;
+    const visibility = ps[field];
+    console.log('vususs', visibility)
+    if (visibility === "public") return true;
+    if (visibility === "friends") return isConnected || isRelationship;
+    if (visibility === "relationship") return isRelationship;
+    return true;
+  };
+
 
   // Get all wishes between me and this user (bidirectional)
   const wishesBetweenUs = useMemo(() => {
@@ -317,9 +352,14 @@ export default function UserProfileScreen() {
           <Text className="text-wishy-black font-bold text-2xl mt-4">
             {user.name}
           </Text>
-          {user.bio && (
+          {user.bio && canView("bio") && (
             <Text className="text-wishy-gray text-center mt-2 px-4">
               {user.bio}
+            </Text>
+          )}
+          {user.bio && !canView("bio") && (
+            <Text className="text-wishy-gray/50 text-center mt-2 px-4 italic text-sm">
+              Bio is private
             </Text>
           )}
 
@@ -337,6 +377,9 @@ export default function UserProfileScreen() {
               </View>
             )}
           </View>
+
+
+         
 
           {/* Rating Display */}
           {userRating.total > 0 && (
@@ -417,7 +460,7 @@ export default function UserProfileScreen() {
                     Overview
                   </Text>
                 </Pressable>
-                {(user.role === "both" || user.role === "wished") && (
+                {(user.role === "both" || user.role === "wished") && canView("wishList") && (
                   <Pressable
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -440,7 +483,7 @@ export default function UserProfileScreen() {
                     </Text>
                   </Pressable>
                 )}
-                {(user.role === "both" || user.role === "wisher") && (
+                {(user.role === "both" || user.role === "wisher") && canView("wishPortfolio") && (
                   <Pressable
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -469,6 +512,95 @@ export default function UserProfileScreen() {
             {/* Overview Tab */}
             {selectedTab === "overview" && (
               <>
+                {/* About Section */}
+                {(canView("bio") || canView("age") || canView('gender') || canView("relationshipPreferences") || canView("interests") || canView("location") || canView("email")) && (
+                  <Animated.View entering={FadeInDown.delay(220).duration(400)} className="px-6 mb-6">
+                    <Text className="text-wishy-black font-bold text-lg mb-3">About</Text>
+                    <View className="bg-white rounded-2xl p-4 border border-wishy-paleBlush gap-3">
+
+                      {canView("bio") && user.bio && (
+                        <View className="flex-row items-start">
+                          <Ionicons name="person-outline" size={18} color="#8B2252" />
+                          <Text className="text-wishy-black ml-3 flex-1 text-sm">{user.bio}</Text>
+                        </View>
+                      )}
+
+                      {canView("gender") && (user.gender ) && (
+                        <View className="flex-row items-center">
+                          <Ionicons name="body-outline" size={18} color="#8B2252" />
+                          <Text className="text-wishy-black ml-3 text-sm">
+                            {user.gender ? `${user.gender}` : null}
+                          </Text>
+                        </View>
+                      )}
+                       {canView("age") && (user.age) && (
+                        <View className="flex-row items-center">
+                          <Ionicons name="body-outline" size={18} color="#8B2252" />
+                          <Text className="text-wishy-black ml-3 text-sm">
+                            {user.age ? `${user.age} yrs` : null}
+                          </Text>
+                        </View>
+                      )}
+
+                      {canView("relationshipPreferences") && user.relationshipPreference && (
+                        <View className="flex-row items-center">
+                          <Ionicons name="heart-outline" size={18} color="#8B2252" />
+                          <Text className="text-wishy-black ml-3 text-sm capitalize">
+                            {user.customRelationshipPreference || user.relationshipPreference}
+                          </Text>
+                        </View>
+                      )}
+
+                      {canView("location") && user.location && (
+                        <View className="flex-row items-center">
+                          <Ionicons name="location-outline" size={18} color="#8B2252" />
+                          <Text className="text-wishy-black ml-3 text-sm">{user.location}</Text>
+                        </View>
+                      )}
+
+                      {canView("email") && (
+                        <View className="flex-row items-center">
+                          <Ionicons name="mail-outline" size={18} color="#8B2252" />
+                          <Text className="text-wishy-black ml-3 text-sm">{user.email}</Text>
+                        </View>
+                      )}
+
+                      {canView("interests") && user.interests.length > 0 && (
+                        <View>
+                          <View className="flex-row items-center mb-2">
+                            <Ionicons name="star-outline" size={18} color="#8B2252" />
+                            <Text className="text-wishy-black ml-3 text-sm font-medium">Interests</Text>
+                          </View>
+                          <View className="flex-row flex-wrap gap-2 pl-7">
+                            {user.interests.map((interest) => (
+                              <View key={interest} className="bg-wishy-paleBlush/60 px-3 py-1 rounded-full">
+                                <Text className="text-wishy-black text-xs">{interest}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+
+                      {user.photoGallery.length > 0 && (
+                        <View>
+                          <View className="flex-row items-center mb-2">
+                            <Ionicons name="images-outline" size={18} color="#8B2252" />
+                            <Text className="text-wishy-black ml-3 text-sm font-medium">Photos</Text>
+                          </View>
+                          <View className="flex-row flex-wrap gap-2 pl-7">
+                            {user.photoGallery.slice(0, 6).map((photo, i) => (
+                              <View key={i} className="w-20 h-20 rounded-xl overflow-hidden bg-wishy-paleBlush">
+                                <Image source={{ uri: photo }} style={{ width: 80, height: 80 }} contentFit="cover" />
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+
+                    </View>
+                  </Animated.View>
+                )}
+
                 {/* Statistics Section */}
                 <Animated.View
                   entering={FadeInDown.delay(250).duration(400)}
@@ -634,9 +766,8 @@ export default function UserProfileScreen() {
           </>
         )}
 
-        {/* Basic Info - Always visible */}
         {/* Interests */}
-        {user.interests.length > 0 && (
+        {/* {user.interests.length > 0 && canView("interests") && (
           <Animated.View
             entering={FadeInDown.delay(isConnected ? 400 : 200).duration(400)}
             className="px-6 mb-6"
@@ -653,12 +784,10 @@ export default function UserProfileScreen() {
               ))}
             </View>
           </Animated.View>
-        )}
+        )} */}
 
         {/* Photo Gallery */}
-        {user.photoGallery.length > 0 &&
-          (user.privacySettings.showGallery === "public" ||
-            (isConnected && user.privacySettings.showGallery === "connections")) && (
+        {/* {user.photoGallery.length > 0 && isConnected && (
             <Animated.View
               entering={FadeInDown.delay(isConnected ? 450 : 250).duration(400)}
               className="px-6 mb-6"
@@ -679,21 +808,23 @@ export default function UserProfileScreen() {
                 ))}
               </View>
             </Animated.View>
-          )}
+          )} */}
 
         {/* Contact Info */}
-        {isConnected && (
+        {/* {(canView("email") || (user.location && canView("location"))) && (
           <Animated.View
             entering={FadeInDown.delay(500).duration(400)}
             className="px-6 mb-6"
           >
             <Text className="text-wishy-black font-semibold mb-3">Contact</Text>
             <View className="bg-white rounded-xl p-4 border border-wishy-paleBlush">
-              <View className="flex-row items-center">
-                <Ionicons name="mail" size={20} color="#8B2252" />
-                <Text className="text-wishy-black ml-3">{user.email}</Text>
-              </View>
-              {user.location && user.privacySettings.showLocation && (
+              {canView("email") && (
+                <View className="flex-row items-center">
+                  <Ionicons name="mail" size={20} color="#8B2252" />
+                  <Text className="text-wishy-black ml-3">{user.email}</Text>
+                </View>
+              )}
+              {user.location && canView("location") && (
                 <View className="flex-row items-center mt-3">
                   <Ionicons name="location" size={20} color="#8B2252" />
                   <Text className="text-wishy-black ml-3">{user.location}</Text>
@@ -719,7 +850,7 @@ export default function UserProfileScreen() {
               )}
             </View>
           </Animated.View>
-        )}
+        )} */}
 
         {/* In a Relationship Section */}
         {userRelationships.length > 0 && (

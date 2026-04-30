@@ -27,6 +27,8 @@ import EditProfileScreen from "../screens/EditProfileScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import ManageConnectionScreen from "../screens/ManageConnectionScreen";
 import PushDebugScreen from "../screens/PushDebugScreen";
+import PrivacyScreen from "../screens/PrivacyScreen";
+import CalendarScreen from "../screens/CalendarScreen";
 
 // Types
 export type RootStackParamList = {
@@ -47,6 +49,9 @@ export type RootStackParamList = {
   Settings: undefined;
   ManageConnection: { userId: string };
   PushDebug: undefined;
+  Privacy: undefined;
+  Calendar: undefined;
+  QRScanner: undefined;
 };
 
 export type MainTabsParamList = {
@@ -265,6 +270,20 @@ export default function RootNavigator() {
       <Stack.Screen
         name="PushDebug"
         component={PushDebugScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Privacy"
+        component={PrivacyScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Calendar"
+        component={CalendarScreen}
         options={{
           headerShown: false,
         }}

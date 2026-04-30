@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, Pressable, ScrollView, Modal } from "react-native";
+import React, { useState, useMemo } from "react";
+import { View, Text, Pressable, ScrollView, Modal, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -32,10 +32,24 @@ export default function ProfileScreen() {
   const getUnreadCount = useNotificationStore((s) => s.getUnreadCount);
   const getRelationshipConnections = useConnectionStore((s) => s.getRelationshipConnections);
   const { show: showModal, hide: hideModal, isVisible } = useModalState(
-    "photo", "enlargedPhoto", "role", "delete", "logout"
+    "photo", "enlargedPhoto", "role", "delete", "logout", "help", "viewGalleryPhoto"
   );
+  const [galleryPhotoUri, setGalleryPhotoUri] = useState<string | null>(null);
 
   const unreadNotifications = getUnreadCount(currentUser?.id || "");
+
+  const todayScheduledCount = useMemo(() => {
+    if (!currentUser) return 0;
+    return wishes.filter((w) => {
+      if (!["accepted", "date_set", "confirmed"].includes(w.status)) return false;
+      return (
+        w.creatorId === currentUser.id ||
+        w.targetUserId === currentUser.id ||
+        (w.targetUserIds && w.targetUserIds.includes(currentUser.id))
+      );
+    }).length;
+  }, [wishes, currentUser]);
+
   const userRating = React.useMemo(
     () => currentUser ? getUserAverageRating(currentUser.id) : { average: 0, praised: 0, total: 0 },
     [currentUser, getUserAverageRating, wishes]
@@ -161,6 +175,35 @@ export default function ProfileScreen() {
     navigation.navigate("Landing");
   };
 
+  const handleAddGalleryPhoto = async () => {
+    if ((currentUser?.photoGallery?.length ?? 0) >= 10) return;
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "images",
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const gallery = [...(currentUser?.photoGallery ?? []), result.assets[0].uri];
+      updateUser({ photoGallery: gallery });
+    }
+  };
+
+  const handleRemoveGalleryPhoto = (uri: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const gallery = (currentUser?.photoGallery ?? []).filter((u) => u !== uri);
+    updateUser({ photoGallery: gallery });
+  };
+
+  const handleViewGalleryPhoto = (uri: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setGalleryPhotoUri(uri);
+    showModal("viewGalleryPhoto");
+  };
+
   const handleChangeRole = (newRole: UserRole) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     updateUser({ role: newRole });
@@ -223,22 +266,22 @@ export default function ProfileScreen() {
         className="items-center pt-6 pb-8 px-6"
       >
         <Pressable onPress={handleViewPhoto} className="relative">
-          <View className="w-28 h-28 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-4 border-wishy-pink">
+          <View className="w-50 h-50 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-4 border-wishy-pink">
             {currentUser.profilePhoto ? (
               <Image
                 source={{ uri: currentUser.profilePhoto }}
-                style={{ width: 112, height: 112 }}
+                style={{ width: 200, height: 200 }}
                 contentFit="cover"
               />
             ) : (
-              <Ionicons name="person" size={48} color="#8B2252" />
+              <Ionicons name="person" size={120} color="#8B2252" />
             )}
           </View>
           <Pressable
             onPress={handleChangePhoto}
-            className="absolute bottom-0 right-0 bg-wishy-black w-9 h-9 rounded-full items-center justify-center border-2 border-wishy-white"
+            className="absolute bottom-3 right-3 bg-wishy-black w-12 h-12 rounded-full items-center justify-center border-2 border-wishy-white"
           >
-            <Ionicons name="camera" size={18} color="#FFB6D9" />
+            <Ionicons name="camera" size={22} color="#FFB6D9" />
           </Pressable>
         </Pressable>
         <Text className="text-wishy-black font-bold text-2xl mt-4">
@@ -351,12 +394,76 @@ export default function ProfileScreen() {
         </Animated.View>
       )}
 
+      {/* Photo Album */}
+      <Animated.View
+        entering={FadeInDown.delay(250).duration(400)}
+        className="px-6 mb-6"
+      >
+        <View className="flex-row items-center justify-between mb-3">
+          <Text className="text-wishy-black font-semibold">Photo Album</Text>
+          <Text className="text-wishy-gray text-xs">
+            {currentUser.photoGallery?.length ?? 0}/10
+          </Text>
+        </View>
+        <View className="flex-row flex-wrap gap-2">
+          {(currentUser.photoGallery ?? []).map((uri) => (
+            <Pressable
+              key={uri}
+              onPress={() => handleViewGalleryPhoto(uri)}
+              onLongPress={() => handleRemoveGalleryPhoto(uri)}
+              className="active:opacity-80"
+            >
+              <Image
+                source={{ uri }}
+                style={{ width: 80, height: 80, borderRadius: 12 }}
+                contentFit="cover"
+              />
+            </Pressable>
+          ))}
+          {(currentUser.photoGallery?.length ?? 0) < 10 && (
+            <Pressable
+              onPress={handleAddGalleryPhoto}
+              className="w-20 h-20 rounded-xl bg-wishy-paleBlush/50 border-2 border-dashed border-wishy-pink items-center justify-center active:opacity-70"
+            >
+              <Ionicons name="add" size={28} color="#8B2252" />
+            </Pressable>
+          )}
+        </View>
+        {(currentUser.photoGallery?.length ?? 0) > 0 && (
+          <Text className="text-wishy-gray text-xs mt-2">Long press a photo to remove it</Text>
+        )}
+      </Animated.View>
+
       {/* Actions */}
       <Animated.View
         entering={FadeInDown.delay(300).duration(400)}
         className="px-6"
       >
         <Text className="text-wishy-black font-semibold mb-3">Quick Actions</Text>
+
+        {/* Calendar */}
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("Calendar");
+          }}
+          className="bg-white rounded-2xl p-4 mb-3 flex-row items-center justify-between border border-wishy-paleBlush active:opacity-80"
+        >
+          <View className="flex-row items-center flex-1">
+            <View className="w-10 h-10 bg-wishy-paleBlush rounded-full items-center justify-center mr-3">
+              <Ionicons name="calendar" size={20} color="#4A1528" />
+            </View>
+            <Text className="text-wishy-black font-medium text-base">Calendar</Text>
+            {todayScheduledCount > 0 && (
+              <View className="ml-2 bg-wishy-pink rounded-full min-w-5 h-5 items-center justify-center px-1">
+                <Text className="text-wishy-black text-xs font-bold">
+                  {todayScheduledCount > 99 ? "99+" : todayScheduledCount}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
+        </Pressable>
 
         {/* Notifications */}
         <Pressable
@@ -447,6 +554,10 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.navigate("Privacy");
+          }}
           className="bg-white rounded-xl p-4 flex-row items-center mb-3 active:opacity-95 border border-wishy-paleBlush"
         >
           <View className="w-10 h-10 bg-wishy-paleBlush rounded-xl items-center justify-center">
@@ -459,6 +570,10 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            showModal("help");
+          }}
           className="bg-white rounded-xl p-4 flex-row items-center active:opacity-95"
         >
           <View className="w-10 h-10 bg-wishy-paleBlush rounded-xl items-center justify-center">
@@ -766,6 +881,90 @@ export default function ProfileScreen() {
                 </Pressable>
               </View>
             </Animated.View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Help & Support Modal */}
+      <Modal
+        visible={isVisible("help")}
+        transparent
+        animationType="fade"
+        onRequestClose={() => hideModal("help")}
+      >
+        <Pressable
+          onPress={() => hideModal("help")}
+          className="flex-1 bg-black/50 justify-center items-center"
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <Animated.View
+              entering={FadeIn.duration(200)}
+              exiting={FadeOut.duration(200)}
+              className="bg-wishy-white rounded-3xl p-6 mx-6 w-80"
+            >
+              <View className="items-center mb-6">
+                <View className="w-16 h-16 bg-wishy-paleBlush rounded-full items-center justify-center mb-4">
+                  <Ionicons name="help-circle" size={32} color="#8B2252" />
+                </View>
+                <Text className="text-wishy-black font-bold text-xl text-center">
+                  Help & Support
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  Linking.openURL("mailto:wishydevelop@gmail.com");
+                }}
+                className="bg-wishy-paleBlush/50 rounded-2xl p-4 flex-row items-center active:opacity-80 border border-wishy-pink/30"
+              >
+                <View className="w-10 h-10 bg-wishy-pink rounded-xl items-center justify-center mr-3">
+                  <Ionicons name="mail" size={20} color="#4A1528" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-wishy-black font-medium">Contact Support</Text>
+                  <Text className="text-wishy-gray text-xs mt-0.5">wishydevelop@gmail.com</Text>
+                </View>
+              </Pressable>
+              <Pressable
+                onPress={() => hideModal("help")}
+                className="mt-4 py-3 rounded-xl items-center border border-wishy-paleBlush active:opacity-80"
+              >
+                <Text className="text-wishy-black font-semibold">Close</Text>
+              </Pressable>
+            </Animated.View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Gallery Full-Screen Viewer */}
+      <Modal
+        visible={isVisible("viewGalleryPhoto")}
+        transparent
+        animationType="fade"
+        onRequestClose={() => hideModal("viewGalleryPhoto")}
+      >
+        <Pressable
+          onPress={() => hideModal("viewGalleryPhoto")}
+          className="flex-1 bg-black/90 items-center justify-center"
+        >
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(200)}
+            className="w-full px-6"
+          >
+            {galleryPhotoUri && (
+              <Image
+                source={{ uri: galleryPhotoUri }}
+                style={{ width: "100%", aspectRatio: 1, borderRadius: 20 }}
+                contentFit="contain"
+              />
+            )}
+          </Animated.View>
+          <Pressable
+            onPress={() => hideModal("viewGalleryPhoto")}
+            className="absolute top-12 right-6 w-10 h-10 bg-wishy-white/20 rounded-full items-center justify-center"
+          >
+            <Ionicons name="close" size={24} color="#FFFFFF" />
           </Pressable>
         </Pressable>
       </Modal>

@@ -2,6 +2,8 @@
 
 export type UserRole = "wisher" | "wished" | "both";
 
+export type PrivacyVisibility = "public" | "friends" | "relationship";
+
 export type Gender = "male" | "female" | "non-binary" | "custom";
 
 export type RelationshipPreference = "heterosexual" | "homosexual" | "bisexual" | "custom";
@@ -46,9 +48,15 @@ export interface User {
     instagram?: string;
   };
   privacySettings: {
-    showAge: boolean;
-    showLocation: boolean;
-    showGallery: "public" | "connections" | "private";
+    email: PrivacyVisibility;
+    bio: PrivacyVisibility;
+    location: PrivacyVisibility;
+    ageAndGender: PrivacyVisibility;
+    relationshipPreferences: PrivacyVisibility;
+    interests: PrivacyVisibility;
+    wishList: PrivacyVisibility;
+    wishPortfolio: PrivacyVisibility;
+    calendar: PrivacyVisibility;
   };
   searchPreferences?: {
     roles: UserRole[]; // Which roles to show in search

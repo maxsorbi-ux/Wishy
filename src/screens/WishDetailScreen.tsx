@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { format } from "date-fns";
 import { View, Text, Pressable, ScrollView, Platform, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -168,7 +169,7 @@ export default function WishDetailScreen() {
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    const dateStr = proposedDate.toLocaleDateString();
+    const dateStr = format(proposedDate, "yyyy-MM-dd");
     const timeStr = proposedDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
     await proposeDate(wishId, {
@@ -533,7 +534,7 @@ export default function WishDetailScreen() {
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    const dateStr = editDate.toLocaleDateString();
+    const dateStr = format(editDate, "yyyy-MM-dd");
     const timeStr = editDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
     await proposeDate(wishId, {
