@@ -13,12 +13,13 @@ type PrivacyKey =
   | "email"
   | "bio"
   | "location"
+  | "age"
   | "gender"
-    | "age"
   | "relationshipPreferences"
   | "interests"
   | "wishList"
   | "wishPortfolio"
+  | "gallery"
   | "calendar";
 
 const PRIVACY_ITEMS: Array<{ key: PrivacyKey; label: string; icon: string }> = [
@@ -26,11 +27,12 @@ const PRIVACY_ITEMS: Array<{ key: PrivacyKey; label: string; icon: string }> = [
   { key: "bio", label: "Bio", icon: "document-text-outline" },
   { key: "location", label: "Location", icon: "location-outline" },
   { key: "age", label: "Age", icon: "person-outline" },
-  { key: "gender", label: "gender", icon: "person-outline" },
+  { key: "gender", label: "Gender", icon: "body-outline" },
   { key: "relationshipPreferences", label: "Relationship Preferences", icon: "heart-outline" },
   { key: "interests", label: "Interests", icon: "sparkles-outline" },
   { key: "wishList", label: "Wish List", icon: "list-outline" },
   { key: "wishPortfolio", label: "Wish Portfolio", icon: "briefcase-outline" },
+  { key: "gallery", label: "Photo Gallery", icon: "images-outline" },
   // { key: "calendar", label: "Calendar", icon: "calendar-outline" },
 ];
 
@@ -56,6 +58,7 @@ export default function PrivacyScreen() {
     interests: "public",
     wishList: "public",
     wishPortfolio: "public",
+    gallery: "public",
     calendar: "public",
   };
 

@@ -123,7 +123,7 @@ const useConnectionStore = create<ConnectionState>()(
           const insertResult = await supabaseDb.insert("connection_requests", insertData);
 
           if (insertResult.error) {
-            throw new Error("Impossibile inviare la richiesta. Riprova.");
+            throw new Error(insertResult.error.message || "Impossibile inviare la richiesta. Riprova.");
           }
 
 
@@ -184,8 +184,11 @@ const useConnectionStore = create<ConnectionState>()(
 
         try {
           // Update request status in Supabase
-          const updateResult = await supabaseDb.update("connection_requests", { status: "accepted" }, { id: requestId });
-
+          const updateResult = await supabaseDb.update(
+            "connection_requests",
+            { status: "accepted", relationShipStatus: connectionType }, // ✅ merged into one object
+            { id: requestId }
+          );
           if (updateResult.error) {
             throw new Error("Impossibile accettare la richiesta. Riprova.");
           }
@@ -264,7 +267,7 @@ const useConnectionStore = create<ConnectionState>()(
           createdAt: now,
           updatedAt: now,
         };
-
+      
         set((state) => ({
           relationshipUpgradeRequests: [...state.relationshipUpgradeRequests, newRequest],
         }));
@@ -283,16 +286,15 @@ const useConnectionStore = create<ConnectionState>()(
             to_user_id: receiverId,
             status: "pending",
             request_type: "relationship_upgrade",
-            connection_id: connectionId,
+            relationShipStatus: "relationship",
           };
 
           const insertResult = await supabaseDb.insert("connection_requests", insertData);
 
           if (insertResult.error) {
-            throw new Error("Impossibile inviare la richiesta. Riprova.");
+            throw new Error(insertResult.error.message || "Impossibile inviare la richiesta. Riprova.");
           }
 
-          // In-app notification
           useNotificationStore.getState().addNotification(
             receiverId,
             "relationship_upgrade_request",
@@ -301,7 +303,6 @@ const useConnectionStore = create<ConnectionState>()(
             id
           );
 
-          // Send push notification
           const currentUser = useUserStore.getState().currentUser;
           if (currentUser) {
             sendConnectionRequestNotification(receiverId, currentUser.name, id);
@@ -309,6 +310,7 @@ const useConnectionStore = create<ConnectionState>()(
 
           return id;
         } catch (error) {
+          console.log('sdsdsd', error)
           throw error;
         }
       },
@@ -831,6 +833,7 @@ const useConnectionStore = create<ConnectionState>()(
               receiverId: r.to_user_id as string,
               message: r.message as string | undefined,
               status: r.status as "pending" | "accepted" | "rejected",
+              relationShipStatus: r.relationShipStatus,
               createdAt: new Date(r.created_at as string).getTime(),
               updatedAt: new Date(r.updated_at as string || r.created_at as string).getTime(),
             }));
@@ -931,12 +934,11 @@ const useConnectionStore = create<ConnectionState>()(
                   id: connId,
                   user_id: acceptedReq.senderId,
                   connected_user_id: acceptedReq.receiverId,
-                  status: "friend",
+                  status: acceptedReq.relationShipStatus,
                 });
 
                 if (insertResult.error) {
                 } else {
-                  // Add to local array
                   const newConnection: Connection = {
                     id: connId,
                     senderId: acceptedReq.senderId,

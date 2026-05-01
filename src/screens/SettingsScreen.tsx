@@ -39,15 +39,20 @@ export default function SettingsScreen() {
   const currentUser = useUserStore((s) => s.currentUser);
   const updateUser = useUserStore((s) => s.updateUser);
 
+  // Empty array means "Include All" — no filter applied
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(
-    currentUser?.searchPreferences?.roles || ["wisher", "wished", "both"]
+    currentUser?.searchPreferences?.roles ?? []
   );
   const [selectedGenders, setSelectedGenders] = useState<Gender[]>(
-    currentUser?.searchPreferences?.genders || ["male", "female", "non-binary"]
+    currentUser?.searchPreferences?.genders ?? []
   );
   const [selectedRelationshipPreferences, setSelectedRelationshipPreferences] = useState<RelationshipPreference[]>(
-    currentUser?.searchPreferences?.relationshipPreferences || ["heterosexual", "homosexual", "bisexual"]
+    currentUser?.searchPreferences?.relationshipPreferences ?? []
   );
+
+  const includeAllRoles = selectedRoles.length === 0;
+  const includeAllGenders = selectedGenders.length === 0;
+  const includeAllPrefs = selectedRelationshipPreferences.length === 0;
 
   const toggleRole = (role: UserRole) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -72,7 +77,6 @@ export default function SettingsScreen() {
 
   const handleSave = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
     updateUser({
       searchPreferences: {
         roles: selectedRoles,
@@ -80,7 +84,6 @@ export default function SettingsScreen() {
         relationshipPreferences: selectedRelationshipPreferences,
       },
     });
-
     navigation.goBack();
   };
 
@@ -127,7 +130,7 @@ export default function SettingsScreen() {
             <View className="flex-row items-start">
               <Ionicons name="information-circle" size={20} color="#8B2252" />
               <Text className="text-wishy-gray text-sm ml-2 flex-1">
-                Choose which users appear in your search results based on their role, gender, and relationship preference.
+                {"Choose which users appear in search results. Select \"Include All\" to show everyone, or pick specific options to filter."}
               </Text>
             </View>
           </Animated.View>
@@ -135,104 +138,127 @@ export default function SettingsScreen() {
           {/* Roles Filter */}
           <Animated.View entering={FadeInDown.delay(100).duration(400)} className="mb-6">
             <Text className="text-wishy-black font-bold text-lg mb-3">User Roles</Text>
-            <Text className="text-wishy-gray text-sm mb-3">
-              Show users with these roles in search results
-            </Text>
             <View className="flex-row flex-wrap gap-2">
-              {ROLES.map((role) => (
-                <Pressable
-                  key={role.value}
-                  onPress={() => toggleRole(role.value)}
-                  className={cn(
-                    "px-4 py-3 rounded-xl border-2 flex-row items-center",
-                    selectedRoles.includes(role.value)
-                      ? "bg-wishy-pink border-wishy-darkPink"
-                      : "bg-white border-wishy-paleBlush"
-                  )}
-                >
-                  {selectedRoles.includes(role.value) && (
-                    <Ionicons name="checkmark-circle" size={18} color="#000000" className="mr-2" />
-                  )}
-                  <Text
+              {/* Include All button */}
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedRoles([]);
+                }}
+                className={cn(
+                  "px-4 py-3 rounded-xl border-2 flex-row items-center gap-1.5",
+                  includeAllRoles
+                    ? "bg-wishy-black border-wishy-black"
+                    : "bg-white border-wishy-paleBlush"
+                )}
+              >
+                {includeAllRoles && <Ionicons name="checkmark-circle" size={18} color="#FFF8F0" />}
+                <Text className={cn("font-medium", includeAllRoles ? "text-wishy-white" : "text-wishy-gray")}>
+                  Include All
+                </Text>
+              </Pressable>
+              {ROLES.map((role) => {
+                const active = selectedRoles.includes(role.value);
+                return (
+                  <Pressable
+                    key={role.value}
+                    onPress={() => toggleRole(role.value)}
                     className={cn(
-                      "font-medium",
-                      selectedRoles.includes(role.value) ? "text-wishy-black" : "text-wishy-gray"
+                      "px-4 py-3 rounded-xl border-2 flex-row items-center gap-1.5",
+                      active ? "bg-wishy-pink border-wishy-darkPink" : "bg-white border-wishy-paleBlush"
                     )}
                   >
-                    {role.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    {active && <Ionicons name="checkmark-circle" size={18} color="#000000" />}
+                    <Text className={cn("font-medium", active ? "text-wishy-black" : "text-wishy-gray")}>
+                      {role.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </Animated.View>
 
           {/* Gender Filter */}
           <Animated.View entering={FadeInDown.delay(150).duration(400)} className="mb-6">
             <Text className="text-wishy-black font-bold text-lg mb-3">Gender</Text>
-            <Text className="text-wishy-gray text-sm mb-3">
-              Show users with these genders in search results
-            </Text>
             <View className="flex-row flex-wrap gap-2">
-              {GENDERS.map((gender) => (
-                <Pressable
-                  key={gender.value}
-                  onPress={() => toggleGender(gender.value)}
-                  className={cn(
-                    "px-4 py-3 rounded-xl border-2 flex-row items-center",
-                    selectedGenders.includes(gender.value)
-                      ? "bg-wishy-pink border-wishy-darkPink"
-                      : "bg-white border-wishy-paleBlush"
-                  )}
-                >
-                  {selectedGenders.includes(gender.value) && (
-                    <Ionicons name="checkmark-circle" size={18} color="#000000" className="mr-2" />
-                  )}
-                  <Text
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedGenders([]);
+                }}
+                className={cn(
+                  "px-4 py-3 rounded-xl border-2 flex-row items-center gap-1.5",
+                  includeAllGenders
+                    ? "bg-wishy-black border-wishy-black"
+                    : "bg-white border-wishy-paleBlush"
+                )}
+              >
+                {includeAllGenders && <Ionicons name="checkmark-circle" size={18} color="#FFF8F0" />}
+                <Text className={cn("font-medium", includeAllGenders ? "text-wishy-white" : "text-wishy-gray")}>
+                  Include All
+                </Text>
+              </Pressable>
+              {GENDERS.map((gender) => {
+                const active = selectedGenders.includes(gender.value);
+                return (
+                  <Pressable
+                    key={gender.value}
+                    onPress={() => toggleGender(gender.value)}
                     className={cn(
-                      "font-medium",
-                      selectedGenders.includes(gender.value) ? "text-wishy-black" : "text-wishy-gray"
+                      "px-4 py-3 rounded-xl border-2 flex-row items-center gap-1.5",
+                      active ? "bg-wishy-pink border-wishy-darkPink" : "bg-white border-wishy-paleBlush"
                     )}
                   >
-                    {gender.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    {active && <Ionicons name="checkmark-circle" size={18} color="#000000" />}
+                    <Text className={cn("font-medium", active ? "text-wishy-black" : "text-wishy-gray")}>
+                      {gender.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </Animated.View>
 
           {/* Relationship Preference Filter */}
           <Animated.View entering={FadeInDown.delay(200).duration(400)} className="mb-6">
             <Text className="text-wishy-black font-bold text-lg mb-3">Relationship Preference</Text>
-            <Text className="text-wishy-gray text-sm mb-3">
-              Show users with these preferences in search results
-            </Text>
             <View className="flex-row flex-wrap gap-2">
-              {RELATIONSHIP_PREFERENCES.map((pref) => (
-                <Pressable
-                  key={pref.value}
-                  onPress={() => toggleRelationshipPreference(pref.value)}
-                  className={cn(
-                    "px-4 py-3 rounded-xl border-2 flex-row items-center",
-                    selectedRelationshipPreferences.includes(pref.value)
-                      ? "bg-wishy-pink border-wishy-darkPink"
-                      : "bg-white border-wishy-paleBlush"
-                  )}
-                >
-                  {selectedRelationshipPreferences.includes(pref.value) && (
-                    <Ionicons name="checkmark-circle" size={18} color="#000000" className="mr-2" />
-                  )}
-                  <Text
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedRelationshipPreferences([]);
+                }}
+                className={cn(
+                  "px-4 py-3 rounded-xl border-2 flex-row items-center gap-1.5",
+                  includeAllPrefs
+                    ? "bg-wishy-black border-wishy-black"
+                    : "bg-white border-wishy-paleBlush"
+                )}
+              >
+                {includeAllPrefs && <Ionicons name="checkmark-circle" size={18} color="#FFF8F0" />}
+                <Text className={cn("font-medium", includeAllPrefs ? "text-wishy-white" : "text-wishy-gray")}>
+                  Include All
+                </Text>
+              </Pressable>
+              {RELATIONSHIP_PREFERENCES.map((pref) => {
+                const active = selectedRelationshipPreferences.includes(pref.value);
+                return (
+                  <Pressable
+                    key={pref.value}
+                    onPress={() => toggleRelationshipPreference(pref.value)}
                     className={cn(
-                      "font-medium",
-                      selectedRelationshipPreferences.includes(pref.value)
-                        ? "text-wishy-black"
-                        : "text-wishy-gray"
+                      "px-4 py-3 rounded-xl border-2 flex-row items-center gap-1.5",
+                      active ? "bg-wishy-pink border-wishy-darkPink" : "bg-white border-wishy-paleBlush"
                     )}
                   >
-                    {pref.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    {active && <Ionicons name="checkmark-circle" size={18} color="#000000" />}
+                    <Text className={cn("font-medium", active ? "text-wishy-black" : "text-wishy-gray")}>
+                      {pref.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </Animated.View>
         </View>

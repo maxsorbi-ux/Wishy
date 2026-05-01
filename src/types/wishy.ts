@@ -51,11 +51,13 @@ export interface User {
     email: PrivacyVisibility;
     bio: PrivacyVisibility;
     location: PrivacyVisibility;
-    ageAndGender: PrivacyVisibility;
+    age: PrivacyVisibility;
+    gender: PrivacyVisibility;
     relationshipPreferences: PrivacyVisibility;
     interests: PrivacyVisibility;
     wishList: PrivacyVisibility;
     wishPortfolio: PrivacyVisibility;
+    gallery: PrivacyVisibility;
     calendar: PrivacyVisibility;
   };
   searchPreferences?: {

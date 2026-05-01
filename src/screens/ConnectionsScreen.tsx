@@ -186,12 +186,12 @@ export default function ConnectionsScreen() {
             </View>
 
             {/* QR Code Button */}
-            <Pressable
+            {/* <Pressable
               onPress={handleQRCode}
               className="bg-wishy-pink rounded-2xl p-4 items-center justify-center active:opacity-95"
             >
               <Ionicons name="qr-code" size={24} color="#000000" />
-            </Pressable>
+            </Pressable> */}
           </View>
         </Animated.View>
 
@@ -439,7 +439,7 @@ function ContactRequestCard({
     hideModal("type");
 
     // Accept the request (creates connection as "friend" by default)
-    await acceptContactRequest(request.id);
+    await acceptContactRequest(request.id, connectionType);
 
     // If relationship was selected, update the connection type
     if (connectionType === "relationship" && currentUser && requesterUser) {

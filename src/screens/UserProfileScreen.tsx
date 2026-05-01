@@ -33,6 +33,7 @@ export default function UserProfileScreen() {
   const [selectedTab, setSelectedTab] = useState<"overview" | "wishlist" | "portfolio">("overview");
   const [selectedFilter, setSelectedFilter] = useState<"all" | "sent" | "accepted_pending" | "fulfilled" | "rejected">("all");
   const [showEnlargedPhoto, setShowEnlargedPhoto] = useState(false);
+  const [selectedGalleryPhoto, setSelectedGalleryPhoto] = useState<string | null>(null);
 
   const user = allUsers.find((u) => u.id === route.params.userId);
 
@@ -60,20 +61,13 @@ export default function UserProfileScreen() {
         (conn.senderId === user.id || conn.receiverId === user.id)
     );
   }, [currentUser, user, getAcceptedConnections]);
-
-  console.log('aaa', isConnected )
-
-  console.log('22222', user?.privacySettings)
-
-
   const canView = (field: keyof NonNullable<typeof user>["privacySettings"]): boolean => {
     if (!user) return false;
     const ps = user.privacySettings;
     if (!ps) return true;
     const visibility = ps[field];
-    console.log('vususs', visibility)
     if (visibility === "public") return true;
-    if (visibility === "friends") return isConnected || isRelationship;
+    if (visibility === "friends") return !isRelationship;
     if (visibility === "relationship") return isRelationship;
     return true;
   };
@@ -337,15 +331,15 @@ export default function UserProfileScreen() {
               }
             }}
           >
-            <View className="w-28 h-28 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-4 border-wishy-pink">
+            <View style={{ width: 200, height: 200, borderRadius: 100, overflow: "hidden", borderWidth: 4, borderColor: "#FFB6D9", backgroundColor: "#FFE5F1", alignItems: "center", justifyContent: "center" }}>
               {user.profilePhoto ? (
                 <Image
                   source={{ uri: user.profilePhoto }}
-                  style={{ width: 112, height: 112 }}
+                  style={{ width: 200, height: 200 }}
                   contentFit="cover"
                 />
               ) : (
-                <Ionicons name="person" size={48} color="#8B2252" />
+                <Ionicons name="person" size={80} color="#8B2252" />
               )}
             </View>
           </Pressable>
@@ -513,7 +507,7 @@ export default function UserProfileScreen() {
             {selectedTab === "overview" && (
               <>
                 {/* About Section */}
-                {(canView("bio") || canView("age") || canView('gender') || canView("relationshipPreferences") || canView("interests") || canView("location") || canView("email")) && (
+                {(canView("bio") || canView("age") || canView("gender") || canView("relationshipPreferences") || canView("interests") || canView("location") || canView("email") || (user.photoGallery.length > 0 && canView("gallery"))) && (
                   <Animated.View entering={FadeInDown.delay(220).duration(400)} className="px-6 mb-6">
                     <Text className="text-wishy-black font-bold text-lg mb-3">About</Text>
                     <View className="bg-white rounded-2xl p-4 border border-wishy-paleBlush gap-3">
@@ -581,18 +575,40 @@ export default function UserProfileScreen() {
                         </View>
                       )}
 
-                      {user.photoGallery.length > 0 && (
+                      {user.photoGallery.length > 0 && canView("gallery") && (
                         <View>
                           <View className="flex-row items-center mb-2">
                             <Ionicons name="images-outline" size={18} color="#8B2252" />
-                            <Text className="text-wishy-black ml-3 text-sm font-medium">Photos</Text>
+                            <Text className="text-wishy-black ml-3 text-sm font-medium">
+                              Photo Gallery ({user.photoGallery.length})
+                            </Text>
                           </View>
                           <View className="flex-row flex-wrap gap-2 pl-7">
-                            {user.photoGallery.slice(0, 6).map((photo, i) => (
-                              <View key={i} className="w-20 h-20 rounded-xl overflow-hidden bg-wishy-paleBlush">
-                                <Image source={{ uri: photo }} style={{ width: 80, height: 80 }} contentFit="cover" />
-                              </View>
+                            {user.photoGallery.slice(0, 6).map((uri, i) => (
+                              <Pressable
+                                key={i}
+                                onPress={() => {
+                                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                  setSelectedGalleryPhoto(uri);
+                                }}
+                                className="w-20 h-20 rounded-xl overflow-hidden bg-wishy-paleBlush active:opacity-80"
+                              >
+                                <Image source={{ uri }} style={{ width: 80, height: 80 }} contentFit="cover" />
+                              </Pressable>
                             ))}
+                            {user.photoGallery.length > 6 && (
+                              <Pressable
+                                onPress={() => {
+                                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                  setSelectedGalleryPhoto(user.photoGallery[6]);
+                                }}
+                                className="w-20 h-20 rounded-xl overflow-hidden bg-wishy-paleBlush items-center justify-center active:opacity-80"
+                              >
+                                <Text className="text-wishy-black font-bold text-sm">
+                                  +{user.photoGallery.length - 6}
+                                </Text>
+                              </Pressable>
+                            )}
                           </View>
                         </View>
                       )}
@@ -911,7 +927,7 @@ export default function UserProfileScreen() {
         )}
       </ScrollView>
 
-      {/* Enlarged Photo Modal */}
+      {/* Enlarged Profile Photo Modal */}
       <Modal
         visible={showEnlargedPhoto}
         transparent
@@ -935,9 +951,83 @@ export default function UserProfileScreen() {
               />
             )}
           </Animated.View>
-
           <Pressable
             onPress={() => setShowEnlargedPhoto(false)}
+            className="absolute top-12 right-6 w-10 h-10 bg-wishy-white/20 rounded-full items-center justify-center"
+          >
+            <Ionicons name="close" size={24} color="#FFFFFF" />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Gallery Photo Fullscreen Modal */}
+      <Modal
+        visible={!!selectedGalleryPhoto}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedGalleryPhoto(null)}
+      >
+        <Pressable
+          onPress={() => setSelectedGalleryPhoto(null)}
+          className="flex-1 bg-black/90 items-center justify-center"
+        >
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(200)}
+            className="w-full px-4"
+          >
+            {selectedGalleryPhoto && (
+              <Image
+                source={{ uri: selectedGalleryPhoto }}
+                style={{ width: "100%", aspectRatio: 1, borderRadius: 16 }}
+                contentFit="contain"
+              />
+            )}
+          </Animated.View>
+          {/* Navigation arrows if gallery has multiple photos */}
+          {user.photoGallery.length > 1 && selectedGalleryPhoto && (
+            <>
+              {user.photoGallery.indexOf(selectedGalleryPhoto) > 0 && (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    const idx = user.photoGallery.indexOf(selectedGalleryPhoto);
+                    setSelectedGalleryPhoto(user.photoGallery[idx - 1]);
+                  }}
+                  className="absolute left-4 w-10 h-10 bg-wishy-white/20 rounded-full items-center justify-center"
+                >
+                  <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+                </Pressable>
+              )}
+              {user.photoGallery.indexOf(selectedGalleryPhoto) < user.photoGallery.length - 1 && (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    const idx = user.photoGallery.indexOf(selectedGalleryPhoto);
+                    setSelectedGalleryPhoto(user.photoGallery[idx + 1]);
+                  }}
+                  className="absolute right-4 w-10 h-10 bg-wishy-white/20 rounded-full items-center justify-center"
+                >
+                  <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+                </Pressable>
+              )}
+              <View className="absolute bottom-8 flex-row gap-2">
+                {user.photoGallery.map((_, i) => (
+                  <View
+                    key={i}
+                    className={cn(
+                      "rounded-full",
+                      user.photoGallery.indexOf(selectedGalleryPhoto) === i
+                        ? "w-3 h-3 bg-white"
+                        : "w-2 h-2 bg-white/40"
+                    )}
+                  />
+                ))}
+              </View>
+            </>
+          )}
+          <Pressable
+            onPress={() => setSelectedGalleryPhoto(null)}
             className="absolute top-12 right-6 w-10 h-10 bg-wishy-white/20 rounded-full items-center justify-center"
           >
             <Ionicons name="close" size={24} color="#FFFFFF" />

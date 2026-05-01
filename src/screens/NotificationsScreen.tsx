@@ -161,11 +161,21 @@ export default function NotificationsScreen() {
         break;
 
       case "wish_received":
+        navigation.navigate("WishDetail", { wishId: relatedId ?? ""});
+        break;
+                    
       case "wish_accepted":
+                navigation.navigate("WishDetail", { wishId: relatedId ?? ""});
+                break;
+
       case "date_proposed":
+        navigation.navigate("WishDetail", { wishId: relatedId ?? ""});
+        break;
       case "date_changed":
+        navigation.navigate("WishDetail", { wishId: relatedId ?? ""});
+        break;
       case "date_confirmed":
-        navigation.navigate("Chat", { wishId: wissiDD?.wishId ?? "" });
+        navigation.navigate("WishDetail", { wishId: relatedId ?? ""});
         break;
 
       default:

@@ -10,6 +10,7 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import useUserStore from "../state/userStore";
+import { supabaseStorage } from "../api/supabase";
 import useWishStore from "../state/wishStore";
 import useNotificationStore from "../state/notificationStore";
 import useConnectionStore from "../state/connectionStore";
@@ -35,6 +36,7 @@ export default function ProfileScreen() {
     "photo", "enlargedPhoto", "role", "delete", "logout", "help", "viewGalleryPhoto"
   );
   const [galleryPhotoUri, setGalleryPhotoUri] = useState<string | null>(null);
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false);
 
   const unreadNotifications = getUnreadCount(currentUser?.id || "");
 
@@ -177,6 +179,7 @@ export default function ProfileScreen() {
 
   const handleAddGalleryPhoto = async () => {
     if ((currentUser?.photoGallery?.length ?? 0) >= 10) return;
+    if (!currentUser) return;
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) return;
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -186,9 +189,21 @@ export default function ProfileScreen() {
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const gallery = [...(currentUser?.photoGallery ?? []), result.assets[0].uri];
-      updateUser({ photoGallery: gallery });
+      setIsUploadingGallery(true);
+      try {
+        const localUri = result.assets[0].uri;
+        const filename = `${currentUser.id}/gallery_${Date.now()}.jpg`;
+        const uploadResult = await supabaseStorage.uploadFromUri("avatar", filename, localUri);
+        if (uploadResult.error || !uploadResult.data) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          const gallery = [...(currentUser.photoGallery ?? []), uploadResult.data.publicUrl];
+          await updateUser({ photoGallery: gallery });
+        }
+      } finally {
+        setIsUploadingGallery(false);
+      }
     }
   };
 
@@ -266,8 +281,8 @@ export default function ProfileScreen() {
         className="items-center pt-6 pb-8 px-6"
       >
         <Pressable onPress={handleViewPhoto} className="relative">
-          <View className="w-50 h-50 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-4 border-wishy-pink">
-            {currentUser.profilePhoto ? (
+        <View style={{ width: 200, height: 200, borderRadius: 100, overflow: "hidden", borderWidth: 4, borderColor: "#FFB6D9", backgroundColor: "#FFE5F1", alignItems: "center", justifyContent: "center" }}>
+        {currentUser.profilePhoto ? (
               <Image
                 source={{ uri: currentUser.profilePhoto }}
                 style={{ width: 200, height: 200 }}
@@ -400,7 +415,7 @@ export default function ProfileScreen() {
         className="px-6 mb-6"
       >
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-wishy-black font-semibold">Photo Album</Text>
+          <Text className="text-wishy-black font-semibold">Photo Gallery</Text>
           <Text className="text-wishy-gray text-xs">
             {currentUser.photoGallery?.length ?? 0}/10
           </Text>
@@ -423,9 +438,17 @@ export default function ProfileScreen() {
           {(currentUser.photoGallery?.length ?? 0) < 10 && (
             <Pressable
               onPress={handleAddGalleryPhoto}
+              disabled={isUploadingGallery}
               className="w-20 h-20 rounded-xl bg-wishy-paleBlush/50 border-2 border-dashed border-wishy-pink items-center justify-center active:opacity-70"
             >
-              <Ionicons name="add" size={28} color="#8B2252" />
+              {isUploadingGallery ? (
+                <View className="items-center gap-1">
+                  <Ionicons name="cloud-upload-outline" size={22} color="#8B2252" />
+                  <Text className="text-wishy-darkPink text-xs font-medium">Uploading</Text>
+                </View>
+              ) : (
+                <Ionicons name="add" size={28} color="#8B2252" />
+              )}
             </Pressable>
           )}
         </View>
@@ -526,7 +549,7 @@ export default function ProfileScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
         </Pressable>
-
+{/* 
         <Pressable
           onPress={handleQRCode}
           className="bg-white rounded-xl p-4 flex-row items-center mb-3 active:opacity-95"
@@ -538,7 +561,7 @@ export default function ProfileScreen() {
             My QR Code
           </Text>
           <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
-        </Pressable>
+        </Pressable> */}
 
         <Pressable
           onPress={handleSettings}
@@ -586,7 +609,7 @@ export default function ProfileScreen() {
         </Pressable>
 
         {/* Push Debug - for testing */}
-        <Pressable
+        {/* <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             navigation.navigate("PushDebug");
@@ -600,7 +623,7 @@ export default function ProfileScreen() {
             Push Debug
           </Text>
           <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
-        </Pressable>
+        </Pressable> */}
       </Animated.View>
 
       {/* Logout */}

@@ -67,7 +67,8 @@ export default function ManageConnectionScreen() {
   const handleUpgradeToRelationship = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     // Send upgrade request instead of directly upgrading
-    sendRelationshipUpgradeRequest(connection.id, currentUser.id, otherUser.id);
+    updateConnectionType(connection.id, "relationship");
+    // sendRelationshipUpgradeRequest(connection.id, currentUser.id, otherUser.id);
     setShowUpgradeModal(false);
     showToast("Relationship request sent!");
     navigation.goBack();
