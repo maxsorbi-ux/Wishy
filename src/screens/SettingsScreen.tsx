@@ -75,6 +75,18 @@ export default function SettingsScreen() {
     );
   };
 
+  const hasAnyFilter =
+    selectedRoles.length > 0 ||
+    selectedGenders.length > 0 ||
+    selectedRelationshipPreferences.length > 0;
+
+  const handleClearAll = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    setSelectedRoles([]);
+    setSelectedGenders([]);
+    setSelectedRelationshipPreferences([]);
+  };
+
   const handleSave = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     updateUser({
@@ -108,12 +120,22 @@ export default function SettingsScreen() {
           <Ionicons name="arrow-back" size={24} color="#000000" />
         </Pressable>
         <Text className="text-wishy-black font-bold text-lg">Search Settings</Text>
-        <Pressable
-          onPress={handleSave}
-          className="px-4 py-2 bg-wishy-black rounded-xl active:opacity-80"
-        >
-          <Text className="text-wishy-white font-semibold">Save</Text>
-        </Pressable>
+        <View className="flex-row items-center gap-2">
+          {hasAnyFilter && (
+            <Pressable
+              onPress={handleClearAll}
+              className="px-3 py-2 bg-wishy-paleBlush rounded-xl active:opacity-80 border border-wishy-pink"
+            >
+              <Text className="text-wishy-black font-semibold text-sm">Clear All</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={handleSave}
+            className="px-4 py-2 bg-wishy-black rounded-xl active:opacity-80"
+          >
+            <Text className="text-wishy-white font-semibold">Save</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -221,7 +243,7 @@ export default function SettingsScreen() {
           </Animated.View>
 
           {/* Relationship Preference Filter */}
-          <Animated.View entering={FadeInDown.delay(200).duration(400)} className="mb-6">
+          {/* <Animated.View entering={FadeInDown.delay(200).duration(400)} className="mb-6">
             <Text className="text-wishy-black font-bold text-lg mb-3">Relationship Preference</Text>
             <View className="flex-row flex-wrap gap-2">
               <Pressable
@@ -260,7 +282,7 @@ export default function SettingsScreen() {
                 );
               })}
             </View>
-          </Animated.View>
+          </Animated.View> */}
         </View>
       </ScrollView>
     </View>

@@ -1,11 +1,12 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { View, Text, Pressable, ScrollView, Linking, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { FadeInDown, FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeIn, FadeOut, runOnJS } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import useUserStore from "../state/userStore";
@@ -34,6 +35,11 @@ export default function UserProfileScreen() {
   const [selectedFilter, setSelectedFilter] = useState<"all" | "sent" | "accepted_pending" | "fulfilled" | "rejected">("all");
   const [showEnlargedPhoto, setShowEnlargedPhoto] = useState(false);
   const [selectedGalleryPhoto, setSelectedGalleryPhoto] = useState<string | null>(null);
+
+  const userList = route.params.userList;
+  const userIndex = route.params.userIndex ?? -1;
+  const hasPrev = !!userList && userIndex > 0;
+  const hasNext = !!userList && userIndex < userList.length - 1;
 
   const user = allUsers.find((u) => u.id === route.params.userId);
 
@@ -72,6 +78,41 @@ export default function UserProfileScreen() {
     return true;
   };
 
+  const navigateToPrev = useCallback(() => {
+    if (hasPrev && userList) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      navigation.replace("UserProfile", {
+        userId: userList[userIndex - 1],
+        userList,
+        userIndex: userIndex - 1,
+        animationDirection: "backward",
+      });
+    }
+  }, [hasPrev, userList, userIndex, navigation]);
+
+  const navigateToNext = useCallback(() => {
+    if (hasNext && userList) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      navigation.replace("UserProfile", {
+        userId: userList[userIndex + 1],
+        userList,
+        userIndex: userIndex + 1,
+        animationDirection: "forward",
+      });
+    }
+  }, [hasNext, userList, userIndex, navigation]);
+
+  const swipeGesture = Gesture.Pan()
+    .activeOffsetX([-30, 30])
+    .failOffsetY([-20, 20])
+    .onEnd((e) => {
+      "worklet";
+      if (e.translationX < -60 && e.velocityX < -200) {
+        runOnJS(navigateToNext)();
+      } else if (e.translationX > 60 && e.velocityX > 200) {
+        runOnJS(navigateToPrev)();
+      }
+    });
 
   // Get all wishes between me and this user (bidirectional)
   const wishesBetweenUs = useMemo(() => {
@@ -298,6 +339,7 @@ export default function UserProfileScreen() {
   );
 
   return (
+    <GestureDetector gesture={swipeGesture}>
     <View className="flex-1 bg-wishy-white">
       {/* Header */}
       <View
@@ -309,7 +351,13 @@ export default function UserProfileScreen() {
             <Ionicons name="arrow-back" size={28} color="#000000" />
           </Pressable>
           <Text className="text-wishy-black font-bold text-xl">Profile</Text>
-          <View style={{ width: 28 }} />
+          {userList ? (
+            <Text className="text-wishy-black/60 text-sm">
+              {userIndex + 1}/{userList.length}
+            </Text>
+          ) : (
+            <View style={{ width: 28 }} />
+          )}
         </View>
       </View>
 
@@ -1034,6 +1082,27 @@ export default function UserProfileScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Swipe navigation indicators */}
+      {hasPrev && (
+        <Pressable
+          onPress={navigateToPrev}
+          style={{ position: "absolute", left: 0, top: "50%", marginTop: -24, zIndex: 10 }}
+          className="w-10 h-12 bg-wishy-pink/60 rounded-r-2xl items-center justify-center active:opacity-70"
+        >
+          <Ionicons name="chevron-back" size={20} color="#000000" />
+        </Pressable>
+      )}
+      {hasNext && (
+        <Pressable
+          onPress={navigateToNext}
+          style={{ position: "absolute", right: 0, top: "50%", marginTop: -24, zIndex: 10 }}
+          className="w-10 h-12 bg-wishy-pink/60 rounded-l-2xl items-center justify-center active:opacity-70"
+        >
+          <Ionicons name="chevron-forward" size={20} color="#000000" />
+        </Pressable>
+      )}
     </View>
+    </GestureDetector>
   );
 }

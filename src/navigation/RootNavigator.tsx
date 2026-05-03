@@ -43,7 +43,7 @@ export type RootStackParamList = {
   WishDetail: { wishId: string };
   Chat: { wishId: string; chatId?: string };
   QRCode: undefined;
-  UserProfile: { userId: string };
+  UserProfile: { userId: string; userList?: string[]; userIndex?: number; animationDirection?: "forward" | "backward" };
   Notifications: undefined;
   EditProfile: undefined;
   Settings: undefined;
@@ -235,9 +235,10 @@ export default function RootNavigator() {
       <Stack.Screen
         name="UserProfile"
         component={UserProfileScreen}
-        options={{
+        options={({ route }) => ({
           headerShown: false,
-        }}
+          animation: route.params?.animationDirection === "backward" ? "slide_from_left" : "slide_from_right",
+        })}
       />
       <Stack.Screen
         name="Notifications"

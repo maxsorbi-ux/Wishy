@@ -25,6 +25,7 @@ export default function ConnectionsScreen() {
   const fetchAllUsers = useUserStore((s) => s.fetchAllUsers);
   const getAcceptedConnections = useConnectionStore((s) => s.getAcceptedConnections);
   const getPendingRequestsReceived = useConnectionStore((s) => s.getPendingRequestsReceived);
+  const getPendingRequestsSent = useConnectionStore((s) => s.getPendingRequestsSent);
   const sendContactRequest = useConnectionStore((s) => s.sendContactRequest);
   const syncConnections = useConnectionStore((s) => s.syncConnections);
   const isSyncing = useConnectionStore((s) => s.isSyncing);
@@ -36,9 +37,9 @@ export default function ConnectionsScreen() {
 
   const userId = currentUser?.id || "";
   const acceptedConnections = getAcceptedConnections(userId);
-  const pendingRequests = getPendingRequestsReceived(userId);
+  const pendingRequestsReceived = getPendingRequestsReceived(userId);
+  const pendingRequestsSent = getPendingRequestsSent(userId);
 
-  // Sync connections when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       syncConnections();
@@ -46,23 +47,16 @@ export default function ConnectionsScreen() {
     }, [])
   );
 
-  // Pull to refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([syncConnections(), fetchAllUsers()]);
-    // Get the updated allUsers after fetch
-    const updatedUsers = useUserStore.getState().allUsers;
-    if (updatedUsers.length > 0) {
-    }
     setRefreshing(false);
-  }, [currentUser?.id, currentUser?.name]);
+  }, []);
 
   const searchResults = searchQuery.trim()
     ? allUsers.filter((user) => {
         if (user.id === currentUser?.id) return false;
-
         const prefs = currentUser?.searchPreferences;
-
         if (prefs) {
           if (prefs.roles.length > 0 && !prefs.roles.includes(user.role)) return false;
           if (prefs.genders.length > 0 && (!user.gender || !prefs.genders.includes(user.gender))) return false;
@@ -71,7 +65,6 @@ export default function ConnectionsScreen() {
             (!user.relationshipPreference || !prefs.relationshipPreferences.includes(user.relationshipPreference))
           ) return false;
         }
-
         const query = searchQuery.toLowerCase();
         return (
           user.name.toLowerCase().includes(query) ||
@@ -80,23 +73,12 @@ export default function ConnectionsScreen() {
       })
     : [];
 
-  // Log search results when searching
-  if (searchQuery.trim()) {
-    if (allUsers.length > 0) {
-    }
-  }
-
-  const handleQRCode = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate("QRCode");
-  };
+  const searchResultIds = searchResults.map((u) => u.id);
 
   const handleToggleSearch = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowSearch(!showSearch);
-    if (showSearch) {
-      setSearchQuery("");
-    }
+    if (showSearch) setSearchQuery("");
   };
 
   const handleConnectUser = async (targetUserId: string) => {
@@ -104,14 +86,11 @@ export default function ConnectionsScreen() {
       showToast("Please login first", "error");
       return;
     }
-
-
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await sendContactRequest(currentUser.id, targetUserId);
       setSearchQuery("");
       showToast("Connection request sent!");
-      // Sync to update the UI
       await syncConnections();
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -127,9 +106,23 @@ export default function ConnectionsScreen() {
     navigation.navigate("Landing");
   };
 
+  const hasPendingRequests = pendingRequestsReceived.length > 0 || pendingRequestsSent.length > 0;
+
+  const prefs = currentUser?.searchPreferences;
+  const activeFilterCount =
+    (prefs?.roles?.length ?? 0) +
+    (prefs?.genders?.length ?? 0) +
+    (prefs?.relationshipPreferences?.length ?? 0);
+  const hasActiveFilters = activeFilterCount > 0;
+
+  const handleSearchSettings = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("Settings");
+  };
+
   return (
     <View className="flex-1 bg-wishy-white">
-      {/* Home Icon - Top Left Corner */}
+      {/* Home Icon */}
       <Pressable
         onPress={handleLogoPress}
         style={{ position: "absolute", top: insets.top + 8, left: 12, zIndex: 50 }}
@@ -152,10 +145,9 @@ export default function ConnectionsScreen() {
           />
         }
       >
-        {/* Search and QR Code Section */}
+        {/* Search Bar */}
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-          <View className="flex-row gap-3 mb-2">
-            {/* Search Button/Input */}
+          <View className="flex-row gap-3 mb-2 items-center">
             <View className="flex-1">
               {showSearch ? (
                 <View className="bg-white rounded-2xl px-4 py-3 flex-row items-center border-2 border-wishy-pink">
@@ -178,30 +170,64 @@ export default function ConnectionsScreen() {
                   className="bg-wishy-pink/30 rounded-2xl p-4 flex-row items-center justify-center active:opacity-95 border-2 border-wishy-pink"
                 >
                   <Ionicons name="search" size={24} color="#000000" />
-                  <Text className="text-wishy-black font-semibold ml-2">
-                    Search Users
-                  </Text>
+                  <Text className="text-wishy-black font-semibold ml-2">Search Users</Text>
                 </Pressable>
               )}
             </View>
 
-            {/* QR Code Button */}
-            {/* <Pressable
-              onPress={handleQRCode}
-              className="bg-wishy-pink rounded-2xl p-4 items-center justify-center active:opacity-95"
+            {/* Search Settings Button */}
+            <Pressable
+              onPress={handleSearchSettings}
+              className="w-12 h-12 bg-white rounded-2xl items-center justify-center active:opacity-70 border-2 border-wishy-paleBlush"
             >
-              <Ionicons name="qr-code" size={24} color="#000000" />
-            </Pressable> */}
+              <Ionicons name="options-outline" size={22} color="#8B2252" />
+              {activeFilterCount > 0 && (
+                <View
+                  style={{ position: "absolute", top: 4, right: 4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: "#8B2252", alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}
+                >
+                  <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "700" }}>
+                    {activeFilterCount}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
           </View>
+
+          {/* Active filters summary */}
+          {hasActiveFilters && (
+            <View className="flex-row items-center gap-2 flex-wrap mt-1">
+              <Ionicons name="funnel" size={12} color="#8B2252" />
+              {(prefs?.roles?.length ?? 0) > 0 && (
+                <View className="bg-wishy-pink/40 px-2 py-0.5 rounded-full">
+                  <Text className="text-wishy-black text-xs">{prefs!.roles.join(", ")}</Text>
+                </View>
+              )}
+              {(prefs?.genders?.length ?? 0) > 0 && (
+                <View className="bg-wishy-pink/40 px-2 py-0.5 rounded-full">
+                  <Text className="text-wishy-black text-xs">{prefs!.genders.join(", ")}</Text>
+                </View>
+              )}
+              {(prefs?.relationshipPreferences?.length ?? 0) > 0 && (
+                <View className="bg-wishy-pink/40 px-2 py-0.5 rounded-full">
+                  <Text className="text-wishy-black text-xs">{prefs!.relationshipPreferences.join(", ")}</Text>
+                </View>
+              )}
+            </View>
+          )}
         </Animated.View>
 
-        {/* Search Results */}
-        {showSearch && searchQuery.trim() && (
-          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-            <Text className="text-wishy-black font-semibold text-lg mb-3">
-              Search Results
-            </Text>
-            {searchResults.length === 0 ? (
+        {/* ── Section 1: Search Results ── */}
+        {showSearch && (
+          <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+            <Text className="text-wishy-black font-bold text-xl mb-3">Search Results</Text>
+            {!searchQuery.trim() ? (
+              <View className="bg-white rounded-2xl p-6 items-center">
+                <Ionicons name="search-outline" size={40} color="#9A8A8A" />
+                <Text className="text-wishy-gray text-center mt-2">
+                  Type a name or email to find users
+                </Text>
+              </View>
+            ) : searchResults.length === 0 ? (
               <View className="bg-white rounded-2xl p-6 items-center">
                 <Ionicons name="search-outline" size={40} color="#9A8A8A" />
                 <Text className="text-wishy-gray text-center mt-2">
@@ -210,11 +236,13 @@ export default function ConnectionsScreen() {
               </View>
             ) : (
               <View className="space-y-3">
-                {searchResults.map((user) => (
+                {searchResults.map((user, index) => (
                   <UserSearchCard
                     key={user.id}
                     user={user}
                     onConnect={handleConnectUser}
+                    userList={searchResultIds}
+                    userIndex={index}
                   />
                 ))}
               </View>
@@ -222,63 +250,31 @@ export default function ConnectionsScreen() {
           </Animated.View>
         )}
 
-        {/* Pending Requests */}
-        {pendingRequests.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-            <Text className="text-wishy-black font-semibold text-lg mb-3">
-              Pending Requests
-            </Text>
-            <View className="space-y-3">
-              {pendingRequests.map((request) => {
-                // Get the user who sent the request
-                const requesterUser = allUsers.find((u) => u.id === request.senderId);
-
-                return (
-                  <ContactRequestCard
-                    key={request.id}
-                    request={request}
-                    requesterUser={requesterUser}
-                  />
-                );
-              })}
-            </View>
-          </Animated.View>
-        )}
-
-        {/* Active Connections */}
-        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
-          <Text className="text-wishy-black font-semibold text-lg mb-3">
-            Your Connections
-          </Text>
+        {/* ── Section 2: Your Connections ── */}
+        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+          <Text className="text-wishy-black font-bold text-xl mb-3">Your Connections</Text>
           {acceptedConnections.length === 0 ? (
             <View className="bg-white rounded-2xl p-8 items-center">
               <View className="w-20 h-20 bg-wishy-paleBlush rounded-full items-center justify-center mb-4">
                 <Ionicons name="people-outline" size={40} color="#8B2252" />
               </View>
-              <Text className="text-wishy-black font-semibold text-base">
-                No connections yet
-              </Text>
+              <Text className="text-wishy-black font-semibold text-base">No connections yet</Text>
               <Text className="text-wishy-gray text-center mt-2 text-sm">
-                Share your QR code or search for users to start connecting
+                Search for users above to start connecting
               </Text>
             </View>
           ) : (
             <View className="space-y-3">
               {acceptedConnections.map((connection) => {
-                // Get the connected user (the one who is not current user)
-                const connectedUserId = connection.senderId === userId
-                  ? connection.receiverId
-                  : connection.senderId;
+                const connectedUserId =
+                  connection.senderId === userId ? connection.receiverId : connection.senderId;
                 const connectedUser = allUsers.find((u) => u.id === connectedUserId);
-
                 if (!connectedUser) return null;
-
                 return (
                   <ConnectionCard
                     key={connection.id}
                     connection={connection}
                     connectedUser={connectedUser}
-                    isPending={false}
                   />
                 );
               })}
@@ -286,51 +282,68 @@ export default function ConnectionsScreen() {
           )}
         </Animated.View>
 
-        {/* Tips Section */}
-        <Animated.View entering={FadeInDown.delay(400).duration(400)}>
-          <View className="bg-wishy-paleBlush/50 rounded-2xl p-5">
-            <View className="flex-row items-center mb-3">
-              <Ionicons name="bulb" size={20} color="#8B2252" />
-              <Text className="text-wishy-black font-semibold ml-2">
-                Connection Tips
-              </Text>
+        {/* ── Section 3: Pending Requests ── */}
+        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+          <Text className="text-wishy-black font-bold text-xl mb-3">Pending Requests</Text>
+          {!hasPendingRequests ? (
+            <View className="bg-white rounded-2xl p-6 items-center">
+              <Ionicons name="time-outline" size={40} color="#9A8A8A" />
+              <Text className="text-wishy-gray text-center mt-2">No pending requests</Text>
             </View>
-            <Text className="text-wishy-black text-sm leading-5">
-              • Share your QR code at Wishy Parties{"\n"}
-              • Connect with your partner for couple mode{"\n"}
-              • Use the Search Users button to find people
-            </Text>
-          </View>
+          ) : (
+            <View className="space-y-3">
+              {/* Received requests */}
+              {pendingRequestsReceived.length > 0 && (
+                <>
+                  <Text className="text-wishy-gray text-sm font-medium px-1">Received</Text>
+                  {pendingRequestsReceived.map((request) => {
+                    const requesterUser = allUsers.find((u) => u.id === request.senderId);
+                    return (
+                      <ContactRequestCard
+                        key={request.id}
+                        request={request}
+                        requesterUser={requesterUser}
+                      />
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Sent requests */}
+              {pendingRequestsSent.length > 0 && (
+                <>
+                  <Text className="text-wishy-gray text-sm font-medium px-1 mt-1">Sent</Text>
+                  {pendingRequestsSent.map((request) => {
+                    const receiverUser = allUsers.find((u) => u.id === request.receiverId);
+                    return (
+                      <SentRequestCard
+                        key={request.id}
+                        request={request}
+                        receiverUser={receiverUser}
+                      />
+                    );
+                  })}
+                </>
+              )}
+            </View>
+          )}
         </Animated.View>
       </ScrollView>
     </View>
   );
 }
 
+// ── ConnectionCard ──────────────────────────────────────────────────────────
+
 function ConnectionCard({
   connection,
   connectedUser,
-  isPending,
 }: {
   connection: Connection;
   connectedUser?: User;
-  isPending: boolean;
 }) {
   const navigation = useNavigation<NavigationProp>();
-  const updateStatus = useConnectionStore((s) => s.updateConnectionStatus);
   const showToast = useToastStore((s) => s.showToast);
-
-  const handleAccept = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    updateStatus(connection.id, "accepted");
-    showToast("Connection accepted!");
-  };
-
-  const handleDecline = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    updateStatus(connection.id, "blocked");
-    showToast("Connection declined", "info");
-  };
 
   const handleViewProfile = () => {
     if (connectedUser) {
@@ -347,76 +360,55 @@ function ConnectionCard({
   };
 
   return (
-    <View className="bg-white rounded-xl p-4 flex-row items-center">
-      <Pressable
-        onPress={!isPending ? handleViewProfile : undefined}
-        className="flex-row items-center flex-1 active:opacity-80"
-      >
-        <View className="w-14 h-14 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-2 border-wishy-pink">
-          {connectedUser?.profilePhoto ? (
-            <Image
-              source={{ uri: connectedUser.profilePhoto }}
-              style={{ width: 56, height: 56 }}
-              contentFit="cover"
-            />
-          ) : (
-            <Ionicons name="person" size={28} color="#8B2252" />
-          )}
-        </View>
-        <View className="flex-1 ml-3">
-          <Text className="text-wishy-black font-bold text-base">
-            {isPending ? "New Connection Request" : connectedUser?.name || "Unknown User"}
+    <Pressable
+      onPress={handleViewProfile}
+      className="bg-white rounded-xl p-4 flex-row items-center active:opacity-80"
+    >
+      <View className="w-20 h-20 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-2 border-wishy-pink">
+        {connectedUser?.profilePhoto ? (
+          <Image
+            source={{ uri: connectedUser.profilePhoto }}
+            style={{ width: 80, height: 80 }}
+            contentFit="cover"
+          />
+        ) : (
+          <Ionicons name="person" size={40} color="#8B2252" />
+        )}
+      </View>
+      <View className="flex-1 ml-3">
+        <Text className="text-wishy-black font-bold text-base">
+          {connectedUser?.name || "Unknown User"}
+        </Text>
+        {connectedUser?.bio && (
+          <Text className="text-wishy-gray text-sm mt-1" numberOfLines={1}>
+            {connectedUser.bio}
           </Text>
-          {connectedUser?.bio && !isPending && (
-            <Text className="text-wishy-gray text-sm mt-1" numberOfLines={1}>
-              {connectedUser.bio}
-            </Text>
-          )}
-          {!isPending && (
-            <View className="flex-row items-center mt-1">
-              {connection.type === "relationship" && (
-                <View className="flex-row items-center">
-                  <Ionicons name="heart" size={12} color="#8B2252" />
-                  <Text className="text-wishy-pink text-xs ml-1 font-semibold">
-                    In a Relationship
-                  </Text>
-                </View>
-              )}
-              {connection.type === "friend" && (
-                <Text className="text-wishy-gray text-xs">
-                  Friend
-                </Text>
-              )}
+        )}
+        <View className="flex-row items-center mt-1">
+          {connection.type === "relationship" ? (
+            <View className="flex-row items-center">
+              <Ionicons name="heart" size={12} color="#8B2252" />
+              <Text className="text-wishy-pink text-xs ml-1 font-semibold">In a Relationship</Text>
             </View>
+          ) : (
+            <Text className="text-wishy-gray text-xs">Friend</Text>
           )}
         </View>
+      </View>
+      <Pressable
+        onPress={(e) => {
+          e.stopPropagation();
+          handleManageConnection();
+        }}
+        className="w-10 h-10 bg-wishy-paleBlush rounded-full items-center justify-center active:opacity-70"
+      >
+        <Ionicons name="settings-outline" size={20} color="#8B2252" />
       </Pressable>
-      {isPending ? (
-        <View className="flex-row space-x-2">
-          <Pressable
-            onPress={handleDecline}
-            className="w-10 h-10 bg-wishy-white rounded-full items-center justify-center border border-wishy-paleBlush"
-          >
-            <Ionicons name="close" size={20} color="#8B2252" />
-          </Pressable>
-          <Pressable
-            onPress={handleAccept}
-            className="w-10 h-10 bg-wishy-black rounded-full items-center justify-center"
-          >
-            <Ionicons name="checkmark" size={20} color="#FFF8F0" />
-          </Pressable>
-        </View>
-      ) : (
-        <Pressable
-          onPress={handleManageConnection}
-          className="w-10 h-10 bg-wishy-paleBlush rounded-full items-center justify-center active:opacity-70"
-        >
-          <Ionicons name="settings-outline" size={20} color="#8B2252" />
-        </Pressable>
-      )}
-    </View>
+    </Pressable>
   );
 }
+
+// ── ContactRequestCard (received) ──────────────────────────────────────────
 
 function ContactRequestCard({
   request,
@@ -437,21 +429,13 @@ function ContactRequestCard({
   const handleAccept = async (connectionType: ConnectionType) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     hideModal("type");
-
-    // Accept the request (creates connection as "friend" by default)
     await acceptContactRequest(request.id, connectionType);
-
-    // If relationship was selected, update the connection type
     if (connectionType === "relationship" && currentUser && requesterUser) {
-      // Wait a moment for the connection to be created
       setTimeout(async () => {
         const connection = getConnectionBetweenUsers(currentUser.id, requesterUser.id);
-        if (connection) {
-          await updateConnectionType(connection.id, "relationship");
-        }
+        if (connection) await updateConnectionType(connection.id, "relationship");
       }, 500);
     }
-
     showToast(
       connectionType === "relationship"
         ? "Connection accepted as relationship!"
@@ -475,16 +459,16 @@ function ContactRequestCard({
   return (
     <>
       <View className="bg-white rounded-xl p-4 flex-row items-center">
-        <Pressable onPress={handleViewProfile} className="flex-row items-center flex-1">
-          <View className="w-14 h-14 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-2 border-wishy-pink">
+        <Pressable onPress={handleViewProfile} className="flex-row items-center flex-1 active:opacity-80">
+          <View className="w-20 h-20 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-2 border-wishy-pink">
             {requesterUser?.profilePhoto ? (
               <Image
                 source={{ uri: requesterUser.profilePhoto }}
-                style={{ width: 56, height: 56 }}
+                style={{ width: 80, height: 80 }}
                 contentFit="cover"
               />
             ) : (
-              <Ionicons name="person" size={28} color="#8B2252" />
+              <Ionicons name="person" size={40} color="#8B2252" />
             )}
           </View>
           <View className="flex-1 ml-3">
@@ -496,9 +480,7 @@ function ContactRequestCard({
                 {request.message}
               </Text>
             ) : (
-              <Text className="text-wishy-gray text-sm mt-1">
-                wants to connect with you
-              </Text>
+              <Text className="text-wishy-gray text-sm mt-1">wants to connect with you</Text>
             )}
           </View>
         </Pressable>
@@ -521,7 +503,7 @@ function ContactRequestCard({
         </View>
       </View>
 
-      {/* Connection Type Selection Modal */}
+      {/* Connection Type Modal */}
       <Modal
         visible={isVisible("type")}
         transparent
@@ -545,9 +527,7 @@ function ContactRequestCard({
                   How do you want to connect with {requesterUser?.name || "this person"}?
                 </Text>
               </View>
-
               <View className="p-4">
-                {/* Friend Option */}
                 <Pressable
                   onPress={() => handleAccept("friend")}
                   className="flex-row items-center p-4 bg-wishy-paleBlush/30 rounded-xl mb-3 active:opacity-80"
@@ -557,14 +537,10 @@ function ContactRequestCard({
                   </View>
                   <View className="flex-1">
                     <Text className="text-wishy-black font-semibold text-base">Friend</Text>
-                    <Text className="text-wishy-gray text-sm mt-0.5">
-                      Connect as friends to share wishes
-                    </Text>
+                    <Text className="text-wishy-gray text-sm mt-0.5">Connect as friends to share wishes</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
                 </Pressable>
-
-                {/* Relationship Option */}
                 <Pressable
                   onPress={() => handleAccept("relationship")}
                   className="flex-row items-center p-4 bg-pink-50 rounded-xl active:opacity-80"
@@ -574,15 +550,11 @@ function ContactRequestCard({
                   </View>
                   <View className="flex-1">
                     <Text className="text-wishy-black font-semibold text-base">Relationship</Text>
-                    <Text className="text-wishy-gray text-sm mt-0.5">
-                      Connect as partners for couple mode
-                    </Text>
+                    <Text className="text-wishy-gray text-sm mt-0.5">Connect as partners for couple mode</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="#9A8A8A" />
                 </Pressable>
               </View>
-
-              {/* Cancel Button */}
               <Pressable
                 onPress={() => hideModal("type")}
                 className="p-4 border-t border-wishy-paleBlush"
@@ -597,60 +569,116 @@ function ContactRequestCard({
   );
 }
 
+// ── SentRequestCard ─────────────────────────────────────────────────────────
+
+function SentRequestCard({
+  request,
+  receiverUser,
+}: {
+  request: ContactRequest;
+  receiverUser?: User;
+}) {
+  const navigation = useNavigation<NavigationProp>();
+
+  const handleViewProfile = () => {
+    if (receiverUser) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      navigation.navigate("UserProfile", { userId: receiverUser.id });
+    }
+  };
+
+  return (
+    <Pressable
+      onPress={handleViewProfile}
+      className="bg-white rounded-xl p-4 flex-row items-center active:opacity-80"
+    >
+      <View className="w-20 h-20 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-2 border-wishy-pink">
+        {receiverUser?.profilePhoto ? (
+          <Image
+            source={{ uri: receiverUser.profilePhoto }}
+            style={{ width: 80, height: 80 }}
+            contentFit="cover"
+          />
+        ) : (
+          <Ionicons name="person" size={40} color="#8B2252" />
+        )}
+      </View>
+      <View className="flex-1 ml-3">
+        <Text className="text-wishy-black font-bold text-base">
+          {receiverUser?.name || "Unknown User"}
+        </Text>
+        <Text className="text-wishy-gray text-sm mt-1">Awaiting their reply</Text>
+      </View>
+      <View className="bg-orange-100 px-3 py-1.5 rounded-full">
+        <Text className="text-orange-700 font-semibold text-xs">Pending</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+// ── UserSearchCard ──────────────────────────────────────────────────────────
+
 function UserSearchCard({
   user,
   onConnect,
+  userList,
+  userIndex,
 }: {
   user: User;
   onConnect: (userId: string) => void;
+  userList: string[];
+  userIndex: number;
 }) {
+  const navigation = useNavigation<NavigationProp>();
   const connections = useConnectionStore((s) => s.connections);
   const contactRequests = useConnectionStore((s) => s.contactRequests);
   const currentUser = useUserStore((s) => s.currentUser);
 
-  // Check if already connected
   const existingConnection = connections.find(
     (conn) =>
       ((conn.senderId === currentUser?.id && conn.receiverId === user.id) ||
-       (conn.receiverId === currentUser?.id && conn.senderId === user.id)) &&
+        (conn.receiverId === currentUser?.id && conn.senderId === user.id)) &&
       conn.status === "accepted"
   );
 
-  // Check for pending request (only status "pending", not accepted)
   const pendingRequest = contactRequests.find(
     (req) =>
       ((req.senderId === currentUser?.id && req.receiverId === user.id) ||
-       (req.receiverId === currentUser?.id && req.senderId === user.id)) &&
+        (req.receiverId === currentUser?.id && req.senderId === user.id)) &&
       req.status === "pending"
   );
 
-  // Check for accepted request (connection might not be created yet)
   const acceptedRequest = contactRequests.find(
     (req) =>
       ((req.senderId === currentUser?.id && req.receiverId === user.id) ||
-       (req.receiverId === currentUser?.id && req.senderId === user.id)) &&
+        (req.receiverId === currentUser?.id && req.senderId === user.id)) &&
       req.status === "accepted"
   );
 
   const isConnected = !!existingConnection || !!acceptedRequest;
   const isPending = !!pendingRequest;
 
+  const handleViewProfile = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate("UserProfile", { userId: user.id, userList, userIndex });
+  };
+
   return (
-    <View className="bg-white rounded-xl p-4 flex-row items-center">
-      {/* Profile Photo */}
-      <View className="w-14 h-14 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-2 border-wishy-pink">
+    <Pressable
+      onPress={handleViewProfile}
+      className="bg-white rounded-xl p-4 flex-row items-center active:opacity-80"
+    >
+      <View className="w-20 h-20 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-2 border-wishy-pink">
         {user.profilePhoto ? (
           <Image
             source={{ uri: user.profilePhoto }}
-            style={{ width: 56, height: 56 }}
+            style={{ width: 80, height: 80 }}
             contentFit="cover"
           />
         ) : (
-          <Ionicons name="person" size={28} color="#8B2252" />
+          <Ionicons name="person" size={40} color="#8B2252" />
         )}
       </View>
-
-      {/* User Info */}
       <View className="flex-1 ml-3">
         <Text className="text-wishy-black font-bold text-base">{user.name}</Text>
         <Text className="text-wishy-gray text-sm mt-0.5">{user.email}</Text>
@@ -662,24 +690,25 @@ function UserSearchCard({
           </View>
         </View>
       </View>
-
-      {/* Connect Button */}
       {isConnected ? (
-        <View className="bg-green-100 px-4 py-2 rounded-full">
-          <Text className="text-green-700 font-semibold text-sm">Connected</Text>
+        <View className="bg-green-100 px-3 py-1.5 rounded-full">
+          <Text className="text-green-700 font-semibold text-xs">Connected</Text>
         </View>
       ) : isPending ? (
-        <View className="bg-orange-100 px-4 py-2 rounded-full">
-          <Text className="text-orange-700 font-semibold text-sm">Pending</Text>
+        <View className="bg-orange-100 px-3 py-1.5 rounded-full">
+          <Text className="text-orange-700 font-semibold text-xs">Pending</Text>
         </View>
       ) : (
         <Pressable
-          onPress={() => onConnect(user.id)}
-          className="bg-wishy-pink px-4 py-2 rounded-full active:opacity-80"
+          onPress={(e) => {
+            e.stopPropagation();
+            onConnect(user.id);
+          }}
+          className="bg-wishy-pink px-3 py-1.5 rounded-full active:opacity-80"
         >
-          <Text className="text-wishy-black font-semibold">Connect</Text>
+          <Text className="text-wishy-black font-semibold text-xs">Connect</Text>
         </Pressable>
       )}
-    </View>
+    </Pressable>
   );
 }
