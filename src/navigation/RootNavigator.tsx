@@ -137,7 +137,7 @@ function MainTabs() {
         name="Discovery"
         component={DiscoveryScreen}
         options={{
-          title: "Discover",
+          title: "Wishy Stage",
           headerTitle: "Wishy Stage",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="compass" size={size} color={color} />

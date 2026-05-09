@@ -11,7 +11,7 @@ import { Image } from "expo-image";
 import useConnectionStore from "../state/connectionStore";
 import useUserStore from "../state/userStore";
 import { useToastStore } from "../state/toastStore";
-import { Connection, User, ContactRequest, ConnectionType } from "../types/wishy";
+import { Connection, User, ContactRequest, ConnectionType, RelationshipUpgradeRequest } from "../types/wishy";
 import { cn } from "../utils/cn";
 import { useModalState } from "../hooks/useModalState";
 
@@ -26,6 +26,8 @@ export default function ConnectionsScreen() {
   const getAcceptedConnections = useConnectionStore((s) => s.getAcceptedConnections);
   const getPendingRequestsReceived = useConnectionStore((s) => s.getPendingRequestsReceived);
   const getPendingRequestsSent = useConnectionStore((s) => s.getPendingRequestsSent);
+  const getPendingUpgradeRequestsReceived = useConnectionStore((s) => s.getPendingUpgradeRequestsReceived);
+  const getPendingUpgradeRequestsSent = useConnectionStore((s) => s.getPendingUpgradeRequestsSent);
   const sendContactRequest = useConnectionStore((s) => s.sendContactRequest);
   const syncConnections = useConnectionStore((s) => s.syncConnections);
   const isSyncing = useConnectionStore((s) => s.isSyncing);
@@ -39,6 +41,8 @@ export default function ConnectionsScreen() {
   const acceptedConnections = getAcceptedConnections(userId);
   const pendingRequestsReceived = getPendingRequestsReceived(userId);
   const pendingRequestsSent = getPendingRequestsSent(userId);
+  const pendingUpgradesReceived = getPendingUpgradeRequestsReceived(userId);
+  const pendingUpgradesSent = getPendingUpgradeRequestsSent(userId);
 
   useFocusEffect(
     useCallback(() => {
@@ -106,7 +110,11 @@ export default function ConnectionsScreen() {
     navigation.navigate("Landing");
   };
 
-  const hasPendingRequests = pendingRequestsReceived.length > 0 || pendingRequestsSent.length > 0;
+  const hasPendingRequests =
+    pendingRequestsReceived.length > 0 ||
+    pendingRequestsSent.length > 0 ||
+    pendingUpgradesReceived.length > 0 ||
+    pendingUpgradesSent.length > 0;
 
   const prefs = currentUser?.searchPreferences;
   const activeFilterCount =
@@ -292,7 +300,7 @@ export default function ConnectionsScreen() {
             </View>
           ) : (
             <View className="space-y-3">
-              {/* Received requests */}
+              {/* Received contact requests */}
               {pendingRequestsReceived.length > 0 && (
                 <>
                   <Text className="text-wishy-gray text-sm font-medium px-1">Received</Text>
@@ -309,7 +317,24 @@ export default function ConnectionsScreen() {
                 </>
               )}
 
-              {/* Sent requests */}
+              {/* Received relationship upgrade requests */}
+              {pendingUpgradesReceived.length > 0 && (
+                <>
+                  <Text className="text-wishy-gray text-sm font-medium px-1 mt-1">Relationship Requests</Text>
+                  {pendingUpgradesReceived.map((request) => {
+                    const senderUser = allUsers.find((u) => u.id === request.senderId);
+                    return (
+                      <RelationshipUpgradeCard
+                        key={request.id}
+                        request={request}
+                        senderUser={senderUser}
+                      />
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Sent contact requests */}
               {pendingRequestsSent.length > 0 && (
                 <>
                   <Text className="text-wishy-gray text-sm font-medium px-1 mt-1">Sent</Text>
@@ -317,6 +342,23 @@ export default function ConnectionsScreen() {
                     const receiverUser = allUsers.find((u) => u.id === request.receiverId);
                     return (
                       <SentRequestCard
+                        key={request.id}
+                        request={request}
+                        receiverUser={receiverUser}
+                      />
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Sent relationship upgrade requests */}
+              {pendingUpgradesSent.length > 0 && (
+                <>
+                  <Text className="text-wishy-gray text-sm font-medium px-1 mt-1">Sent Relationship Requests</Text>
+                  {pendingUpgradesSent.map((request) => {
+                    const receiverUser = allUsers.find((u) => u.id === request.receiverId);
+                    return (
+                      <SentRelationshipUpgradeCard
                         key={request.id}
                         request={request}
                         receiverUser={receiverUser}
@@ -608,6 +650,131 @@ function SentRequestCard({
           {receiverUser?.name || "Unknown User"}
         </Text>
         <Text className="text-wishy-gray text-sm mt-1">Awaiting their reply</Text>
+      </View>
+      <View className="bg-orange-100 px-3 py-1.5 rounded-full">
+        <Text className="text-orange-700 font-semibold text-xs">Pending</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+// ── RelationshipUpgradeCard (received) ──────────────────────────────────────
+
+function RelationshipUpgradeCard({
+  request,
+  senderUser,
+}: {
+  request: RelationshipUpgradeRequest;
+  senderUser?: User;
+}) {
+  const navigation = useNavigation<NavigationProp>();
+  const acceptRelationshipUpgradeRequest = useConnectionStore((s) => s.acceptRelationshipUpgradeRequest);
+  const rejectRelationshipUpgradeRequest = useConnectionStore((s) => s.rejectRelationshipUpgradeRequest);
+  const showToast = useToastStore((s) => s.showToast);
+
+  const handleAccept = async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await acceptRelationshipUpgradeRequest(request.id);
+    showToast("Relationship request accepted!");
+  };
+
+  const handleDecline = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await rejectRelationshipUpgradeRequest(request.id);
+    showToast("Relationship request declined", "info");
+  };
+
+  const handleViewProfile = () => {
+    if (senderUser) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      navigation.navigate("UserProfile", { userId: senderUser.id });
+    }
+  };
+
+  return (
+    <View className="bg-white rounded-xl p-4 flex-row items-center border border-wishy-paleBlush">
+      <Pressable onPress={handleViewProfile} className="flex-row items-center flex-1 active:opacity-80">
+        <View className="w-14 h-14 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-2 border-wishy-pink">
+          {senderUser?.profilePhoto ? (
+            <Image
+              source={{ uri: senderUser.profilePhoto }}
+              style={{ width: 56, height: 56 }}
+              contentFit="cover"
+            />
+          ) : (
+            <Ionicons name="person" size={28} color="#8B2252" />
+          )}
+        </View>
+        <View className="flex-1 ml-3">
+          <Text className="text-wishy-black font-bold text-base">
+            {senderUser?.name || "Unknown User"}
+          </Text>
+          <View className="flex-row items-center mt-1">
+            <Ionicons name="heart" size={12} color="#8B2252" />
+            <Text className="text-wishy-pink text-xs ml-1">wants to be in a relationship</Text>
+          </View>
+        </View>
+      </Pressable>
+      <View className="flex-row gap-2 ml-2">
+        <Pressable
+          onPress={handleDecline}
+          className="w-10 h-10 bg-wishy-white rounded-full items-center justify-center border border-wishy-paleBlush"
+        >
+          <Ionicons name="close" size={20} color="#8B2252" />
+        </Pressable>
+        <Pressable
+          onPress={handleAccept}
+          className="w-10 h-10 bg-wishy-pink rounded-full items-center justify-center"
+        >
+          <Ionicons name="heart" size={18} color="#fff" />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+// ── SentRelationshipUpgradeCard ──────────────────────────────────────────────
+
+function SentRelationshipUpgradeCard({
+  request,
+  receiverUser,
+}: {
+  request: RelationshipUpgradeRequest;
+  receiverUser?: User;
+}) {
+  const navigation = useNavigation<NavigationProp>();
+
+  const handleViewProfile = () => {
+    if (receiverUser) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      navigation.navigate("UserProfile", { userId: receiverUser.id });
+    }
+  };
+
+  return (
+    <Pressable
+      onPress={handleViewProfile}
+      className="bg-white rounded-xl p-4 flex-row items-center active:opacity-80 border border-wishy-paleBlush"
+    >
+      <View className="w-14 h-14 rounded-full bg-wishy-paleBlush items-center justify-center overflow-hidden border-2 border-wishy-pink">
+        {receiverUser?.profilePhoto ? (
+          <Image
+            source={{ uri: receiverUser.profilePhoto }}
+            style={{ width: 56, height: 56 }}
+            contentFit="cover"
+          />
+        ) : (
+          <Ionicons name="person" size={28} color="#8B2252" />
+        )}
+      </View>
+      <View className="flex-1 ml-3">
+        <Text className="text-wishy-black font-bold text-base">
+          {receiverUser?.name || "Unknown User"}
+        </Text>
+        <View className="flex-row items-center mt-1">
+          <Ionicons name="heart-outline" size={12} color="#8B2252" />
+          <Text className="text-wishy-gray text-xs ml-1">Relationship request sent</Text>
+        </View>
       </View>
       <View className="bg-orange-100 px-3 py-1.5 rounded-full">
         <Text className="text-orange-700 font-semibold text-xs">Pending</Text>

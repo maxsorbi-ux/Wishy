@@ -34,6 +34,7 @@ interface ConnectionState {
   acceptRelationshipUpgradeRequest: (requestId: string) => Promise<void>;
   rejectRelationshipUpgradeRequest: (requestId: string) => Promise<void>;
   getPendingUpgradeRequestsReceived: (userId: string) => RelationshipUpgradeRequest[];
+  getPendingUpgradeRequestsSent: (userId: string) => RelationshipUpgradeRequest[];
   getPendingUpgradeRequestForConnection: (connectionId: string) => RelationshipUpgradeRequest | undefined;
   getPendingUpgradeRequestBetweenUsers: (userId1: string, userId2: string) => RelationshipUpgradeRequest | undefined;
 
@@ -254,9 +255,36 @@ const useConnectionStore = create<ConnectionState>()(
 
       // Relationship Upgrade Request Actions
       sendRelationshipUpgradeRequest: async (connectionId, senderId, receiverId) => {
+        restoreSupabaseSession();
+        const session = useUserStore.getState().supabaseSession;
+
+        if (!session?.access_token) {
+          throw new Error("Non sei autenticato. Effettua il login.");
+        }
+
+        // Delete any prior upgrade requests between these two users to avoid duplicates
+        set((state) => ({
+          relationshipUpgradeRequests: state.relationshipUpgradeRequests.filter(
+            (r) =>
+              !(
+                (r.senderId === senderId && r.receiverId === receiverId) ||
+                (r.senderId === receiverId && r.receiverId === senderId)
+              )
+          ),
+        }));
+        await supabaseDb.delete("connection_requests", {
+          from_user_id: senderId,
+          to_user_id: receiverId,
+          request_type: "relationship_upgrade",
+        });
+        await supabaseDb.delete("connection_requests", {
+          from_user_id: receiverId,
+          to_user_id: senderId,
+          request_type: "relationship_upgrade",
+        });
+
         const id = uuidv4();
         const now = Date.now();
-
 
         const newRequest: RelationshipUpgradeRequest = {
           id,
@@ -267,17 +295,10 @@ const useConnectionStore = create<ConnectionState>()(
           createdAt: now,
           updatedAt: now,
         };
-      
+
         set((state) => ({
           relationshipUpgradeRequests: [...state.relationshipUpgradeRequests, newRequest],
         }));
-
-        restoreSupabaseSession();
-        const session = useUserStore.getState().supabaseSession;
-
-        if (!session?.access_token) {
-          throw new Error("Non sei autenticato. Effettua il login.");
-        }
 
         try {
           const insertData = {
@@ -310,7 +331,6 @@ const useConnectionStore = create<ConnectionState>()(
 
           return id;
         } catch (error) {
-          console.log('sdsdsd', error)
           throw error;
         }
       },
@@ -377,6 +397,12 @@ const useConnectionStore = create<ConnectionState>()(
       getPendingUpgradeRequestsReceived: (userId) => {
         return get().relationshipUpgradeRequests.filter(
           (r) => r.receiverId === userId && r.status === "pending"
+        );
+      },
+
+      getPendingUpgradeRequestsSent: (userId) => {
+        return get().relationshipUpgradeRequests.filter(
+          (r) => r.senderId === userId && r.status === "pending"
         );
       },
 
