@@ -209,10 +209,7 @@ export default function RootNavigator() {
         name="WishDetail"
         component={WishDetailScreen}
         options={{
-          headerShown: true,
-          headerTitle: "",
-          headerTransparent: true,
-          headerTintColor: "#FFFFFF",
+          headerShown: false,
         }}
       />
       <Stack.Screen

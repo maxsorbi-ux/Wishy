@@ -141,6 +141,9 @@ export default function WishDetailScreen() {
   const handleAccept = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+    // Capture displaced recipients before acceptWish trims targetUserIds
+    const displacedUserIds = (wish.targetUserIds || []).filter(id => id !== currentUser?.id);
+
     await acceptWish(wishId);
 
     if (currentUser && wish.creatorId && wish.creatorId !== currentUser.id) {
@@ -152,6 +155,17 @@ export default function WishDetailScreen() {
         wishId
       );
     }
+
+    // Notify other recipients that someone else accepted first
+    displacedUserIds.forEach((displacedId) => {
+      addNotification(
+        displacedId,
+        "wish_received",
+        "Wish No Longer Available",
+        `Someone else accepted "${wish.title}" before you`,
+        wishId
+      );
+    });
 
     showToast("Wish accepted!");
   };

@@ -712,11 +712,11 @@ export default function CreateWishScreen() {
                 <Text className="text-wishy-black font-bold text-lg text-center">
                   Select Recipients
                 </Text>
-                {selectedUserIds.length > 0 && (
-                  <Text className="text-wishy-gray text-center mt-1">
-                    {selectedUserIds.length} selected
-                  </Text>
-                )}
+                <Text className="text-wishy-gray text-center mt-1 text-sm">
+                  {selectedUserIds.length === 3
+                    ? "Maximum 3 recipients reached"
+                    : `Select up to 3 recipients (${selectedUserIds.length}/3)`}
+                </Text>
               </View>
               <ScrollView className="max-h-96">
                 <Pressable
@@ -748,7 +748,7 @@ export default function CreateWishScreen() {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                         if (isSelected) {
                           setSelectedUserIds(selectedUserIds.filter(id => id !== user.id));
-                        } else {
+                        } else if (selectedUserIds.length < 3) {
                           setSelectedUserIds([...selectedUserIds, user.id]);
                         }
                       }}

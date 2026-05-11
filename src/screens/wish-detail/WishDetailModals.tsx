@@ -444,16 +444,11 @@ export function WishDetailModals({
                 <Text className="text-wishy-black font-bold text-xl text-center">
                   {wish.creatorRole === "wisher" ? "Send Offer To" : "Send Request To"}
                 </Text>
-                <Text className="text-wishy-gray text-center mt-1">
-                  {wish.creatorRole === "wisher"
-                    ? "Choose who you want to fulfill this wish for"
-                    : "Choose who you want to fulfill this wish"}
+                <Text className="text-wishy-gray text-center mt-1 text-sm">
+                  {selectedUserIds.length === 3
+                    ? "Maximum 3 recipients reached"
+                    : `Select up to 3 recipients (${selectedUserIds.length}/3)`}
                 </Text>
-                {selectedUserIds.length > 0 && (
-                  <Text className="text-wishy-darkPink text-center mt-2 font-semibold">
-                    {selectedUserIds.length} selected
-                  </Text>
-                )}
               </View>
               {connectedUsers.length === 0 ? (
                 <View className="p-6 items-center">
@@ -485,7 +480,7 @@ export function WishDetailModals({
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             if (isSelected) {
                               setSelectedUserIds(selectedUserIds.filter((id) => id !== user.id));
-                            } else {
+                            } else if (selectedUserIds.length < 3) {
                               setSelectedUserIds([...selectedUserIds, user.id]);
                             }
                           }}

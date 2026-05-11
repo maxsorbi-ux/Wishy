@@ -103,6 +103,7 @@ export interface Wish {
   praised?: boolean; // Heart/Cuoricino
   review?: string;
   ratedBy?: string; // userId of who rated
+  acceptedBy?: string; // userId of whoever accepted first (winner-takes-all)
   proposal?: WishProposal;
 }
 

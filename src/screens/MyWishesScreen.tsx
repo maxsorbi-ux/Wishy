@@ -10,9 +10,11 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import useWishStore from "../state/wishStore";
 import useUserStore from "../state/userStore";
-import { Wish, CATEGORY_LABELS, WISH_STATUS_LABELS } from "../types/wishy";
+import { Wish, User, CATEGORY_LABELS, WISH_STATUS_LABELS } from "../types/wishy";
 import { cn } from "../utils/cn";
 import { WishOriginBadge } from "../components/WishOriginBadge";
+
+type ReceivedFilter = "all" | "from-wisher" | "from-wished" | "from-user";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -30,6 +32,9 @@ export default function MyWishesScreen() {
   const hiddenWishes = useWishStore((s) => s.hiddenWishes);
 
   const [refreshing, setRefreshing] = useState(false);
+  const [receivedFilter, setReceivedFilter] = useState<ReceivedFilter>("all");
+  const [filterUserId, setFilterUserId] = useState<string | null>(null);
+  const [showUserFilterModal, setShowUserFilterModal] = useState(false);
 
   const userId = currentUser?.id || "";
   const userRole = currentUser?.role || "both";
@@ -54,6 +59,26 @@ export default function MyWishesScreen() {
       !hiddenWishes.includes(wish.id)
     );
   });
+
+  // Users who have sent received wishes (for the "from specific user" filter picker)
+  const receivedWishCreators = React.useMemo(() => {
+    const creatorIds = new Set(receivedWishes.map(w => w.creatorId));
+    return allUsers.filter(u => creatorIds.has(u.id));
+  }, [receivedWishes, allUsers]);
+
+  // Apply sub-filter to received wishes
+  const filteredReceivedWishes = React.useMemo(() => {
+    switch (receivedFilter) {
+      case "from-wisher":
+        return receivedWishes.filter(w => w.creatorRole === "wisher");
+      case "from-wished":
+        return receivedWishes.filter(w => w.creatorRole === "wished");
+      case "from-user":
+        return filterUserId ? receivedWishes.filter(w => w.creatorId === filterUserId) : receivedWishes;
+      default:
+        return receivedWishes;
+    }
+  }, [receivedWishes, receivedFilter, filterUserId]);
 
   // Determine which tabs should be visible based on user role
   const showWishList = userRole === "wished" || userRole === "both";
@@ -110,6 +135,15 @@ export default function MyWishesScreen() {
     navigation.navigate("WishDetail", { wishId });
   };
 
+  const switchTab = (tab: TabType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveTab(tab);
+    if (tab !== "received") {
+      setReceivedFilter("all");
+      setFilterUserId(null);
+    }
+  };
+
   const getDisplayedWishes = () => {
     switch (activeTab) {
       case "for-me":
@@ -117,7 +151,7 @@ export default function MyWishesScreen() {
       case "for-others":
         return wishesForOthers;
       case "received":
-        return receivedWishes;
+        return filteredReceivedWishes;
       default:
         return [];
     }
@@ -177,10 +211,7 @@ export default function MyWishesScreen() {
       >
         {showWishList && (
           <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab("for-me");
-            }}
+            onPress={() => switchTab("for-me")}
             className={cn(
               "flex-1 py-3 rounded-xl",
               showPortfolio ? "mr-1.5" : "mr-2",
@@ -208,10 +239,7 @@ export default function MyWishesScreen() {
 
         {showPortfolio && (
           <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setActiveTab("for-others");
-            }}
+            onPress={() => switchTab("for-others")}
             className={cn(
               "flex-1 py-3 rounded-xl",
               showWishList ? "mx-1.5" : "mr-2",
@@ -238,10 +266,7 @@ export default function MyWishesScreen() {
         )}
 
         <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setActiveTab("received");
-          }}
+          onPress={() => switchTab("received")}
           className={cn(
             "flex-1 py-3 rounded-xl relative",
             showWishList || showPortfolio ? "ml-1.5" : "",
@@ -271,6 +296,80 @@ export default function MyWishesScreen() {
           )}
         </Pressable>
       </View>
+
+      {/* Received filter bar */}
+      {activeTab === "received" && (
+        <View className="border-b border-wishy-paleBlush py-2">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+          >
+            <Pressable
+              onPress={() => { setReceivedFilter("all"); setFilterUserId(null); }}
+              className={cn(
+                "px-3 py-1.5 rounded-full border",
+                receivedFilter === "all" ? "bg-purple-100 border-purple-400" : "bg-white border-wishy-paleBlush"
+              )}
+            >
+              <Text className={cn("text-xs font-medium", receivedFilter === "all" ? "text-purple-900" : "text-wishy-gray")}>
+                All ({receivedWishes.length})
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => { setReceivedFilter("from-wisher"); setFilterUserId(null); }}
+              className={cn(
+                "px-3 py-1.5 rounded-full border",
+                receivedFilter === "from-wisher" ? "bg-blue-100 border-blue-400" : "bg-white border-wishy-paleBlush"
+              )}
+            >
+              <Text className={cn("text-xs font-medium", receivedFilter === "from-wisher" ? "text-blue-900" : "text-wishy-gray")}>
+                From Wishers
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => { setReceivedFilter("from-wished"); setFilterUserId(null); }}
+              className={cn(
+                "px-3 py-1.5 rounded-full border",
+                receivedFilter === "from-wished" ? "bg-wishy-pink border-wishy-darkPink" : "bg-white border-wishy-paleBlush"
+              )}
+            >
+              <Text className={cn("text-xs font-medium", receivedFilter === "from-wished" ? "text-wishy-black" : "text-wishy-gray")}>
+                From Wished
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setShowUserFilterModal(true)}
+              className={cn(
+                "px-3 py-1.5 rounded-full border flex-row items-center",
+                receivedFilter === "from-user" ? "bg-wishy-paleBlush border-wishy-darkPink" : "bg-white border-wishy-paleBlush"
+              )}
+            >
+              <Ionicons name="person-outline" size={12} color={receivedFilter === "from-user" ? "#8B2252" : "#9A8A8A"} />
+              <Text className={cn("text-xs font-medium ml-1", receivedFilter === "from-user" ? "text-wishy-darkPink" : "text-wishy-gray")}>
+                {receivedFilter === "from-user" && filterUserId
+                  ? allUsers.find(u => u.id === filterUserId)?.name || "Person"
+                  : "Person"}
+              </Text>
+              {receivedFilter === "from-user" && (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setReceivedFilter("all");
+                    setFilterUserId(null);
+                  }}
+                  className="ml-1"
+                >
+                  <Ionicons name="close-circle" size={14} color="#8B2252" />
+                </Pressable>
+              )}
+            </Pressable>
+          </ScrollView>
+        </View>
+      )}
 
       {/* Content */}
       <ScrollView
@@ -333,6 +432,81 @@ export default function MyWishesScreen() {
         >
           <Ionicons name="add" size={28} color="#FFF8F0" />
         </Pressable>
+      )}
+
+      {/* User Filter Modal */}
+      {showUserFilterModal && (
+        <Animated.View
+          entering={FadeInDown.duration(250)}
+          className="absolute inset-0 bg-black/50 justify-end"
+          style={{ zIndex: 50 }}
+        >
+          <Pressable
+            className="flex-1"
+            onPress={() => setShowUserFilterModal(false)}
+          />
+          <View
+            className="bg-wishy-white rounded-t-3xl"
+            style={{ paddingBottom: insets.bottom }}
+          >
+            <View className="p-4 border-b border-wishy-paleBlush">
+              <Text className="text-wishy-black font-bold text-lg text-center">
+                Filter by Person
+              </Text>
+              <Text className="text-wishy-gray text-center text-sm mt-1">
+                Show wishes received from a specific person
+              </Text>
+            </View>
+            <ScrollView className="max-h-80">
+              {receivedWishCreators.length === 0 ? (
+                <View className="p-6 items-center">
+                  <Text className="text-wishy-gray text-center">
+                    No senders to filter by
+                  </Text>
+                </View>
+              ) : (
+                receivedWishCreators.map((user) => (
+                  <Pressable
+                    key={user.id}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setReceivedFilter("from-user");
+                      setFilterUserId(user.id);
+                      setShowUserFilterModal(false);
+                    }}
+                    className={cn(
+                      "flex-row items-center p-4 border-b border-wishy-paleBlush active:bg-wishy-paleBlush/30",
+                      filterUserId === user.id && "bg-wishy-paleBlush/30"
+                    )}
+                  >
+                    {user.profilePhoto ? (
+                      <Image
+                        source={{ uri: user.profilePhoto }}
+                        style={{ width: 40, height: 40 }}
+                        className="rounded-full mr-3"
+                      />
+                    ) : (
+                      <View className="w-10 h-10 rounded-full bg-wishy-paleBlush items-center justify-center mr-3">
+                        <Ionicons name="person" size={20} color="#4A1528" />
+                      </View>
+                    )}
+                    <View className="flex-1">
+                      <Text className="text-wishy-black font-semibold">
+                        {user.name}
+                      </Text>
+                      <Text className="text-wishy-gray text-xs mt-0.5 capitalize">
+                        {user.role}
+                      </Text>
+                    </View>
+                    {filterUserId === user.id && (
+                      <Ionicons name="checkmark-circle" size={20} color="#4A1528" />
+                    )}
+                  </Pressable>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </Animated.View>
       )}
     </View>
   );

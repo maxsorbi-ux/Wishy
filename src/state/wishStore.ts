@@ -573,31 +573,43 @@ const useWishStore = create<WishState>()(
         const wish = get().wishes.find(w => w.id === wishId);
         const currentUser = useUserStore.getState().currentUser;
 
-
-        if (!wish) {
+        if (!wish || !currentUser) {
           return;
         }
 
-        // Update local state first
+        // Update local state — winner takes all: trim targetUserIds to just the accepting user
         set((state) => ({
           wishes: state.wishes.map((w) =>
             w.id === wishId
-              ? { ...w, status: "accepted" as WishStatus, updatedAt: Date.now() }
+              ? {
+                  ...w,
+                  status: "accepted" as WishStatus,
+                  acceptedBy: currentUser.id,
+                  targetUserIds: [currentUser.id],
+                  targetUserId: currentUser.id,
+                  updatedAt: Date.now(),
+                }
               : w
           ),
         }));
 
+        // Build updated Supabase links: keep actual URL links, set winner as sole recipient
+        const actualLinks = wish.links || [];
+        const updatedLinks = [`recipient:${currentUser.id}`, ...actualLinks];
+
         // Update in Supabase
         restoreSupabaseSession();
-        const updateResult = await supabaseDb.update("wishes", { status: "accepted" }, { id: wishId });
-
+        const updateResult = await supabaseDb.update("wishes", {
+          status: "accepted",
+          links: updatedLinks,
+        }, { id: wishId });
 
         if (updateResult.error) {
           // Revert local state on error
           set((state) => ({
             wishes: state.wishes.map((w) =>
               w.id === wishId
-                ? { ...w, status: wish.status, updatedAt: wish.updatedAt }
+                ? { ...w, status: wish.status, targetUserIds: wish.targetUserIds, targetUserId: wish.targetUserId, acceptedBy: undefined, updatedAt: wish.updatedAt }
                 : w
             ),
           }));
@@ -610,16 +622,15 @@ const useWishStore = create<WishState>()(
           set((state) => ({
             wishes: state.wishes.map((w) =>
               w.id === wishId
-                ? { ...w, status: wish.status, updatedAt: wish.updatedAt }
+                ? { ...w, status: wish.status, targetUserIds: wish.targetUserIds, targetUserId: wish.targetUserId, acceptedBy: undefined, updatedAt: wish.updatedAt }
                 : w
             ),
           }));
           return;
         }
 
-
         // Send push notification to wish creator (only if not self)
-        if (currentUser && wish.creatorId !== currentUser.id) {
+        if (wish.creatorId !== currentUser.id) {
           sendWishAcceptedNotification(
             wish.creatorId,
             currentUser.name,
@@ -627,7 +638,6 @@ const useWishStore = create<WishState>()(
             wishId
           );
         }
-
       },
 
       declineWish: async (wishId) => {
