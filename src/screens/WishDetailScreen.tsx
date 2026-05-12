@@ -686,9 +686,9 @@ export default function WishDetailScreen() {
           />
           <Pressable
             onPress={() => navigation.goBack()}
-            className="absolute top-12 left-4 w-10 h-10 bg-black/30 rounded-full items-center justify-center"
+            className="absolute top-12 left-4 w-10 h-10 bg-white rounded-full items-center justify-center"
           >
-            <Ionicons name="chevron-back" size={24} color="#FFF8F0" />
+            <Ionicons name="chevron-back" size={24} color={'#8B2252'} />
           </Pressable>
           {canSendToUser && (
             <Pressable

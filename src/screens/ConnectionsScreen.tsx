@@ -105,11 +105,6 @@ export default function ConnectionsScreen() {
     }
   };
 
-  const handleLogoPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("Landing");
-  };
-
   const hasPendingRequests =
     pendingRequestsReceived.length > 0 ||
     pendingRequestsSent.length > 0 ||
@@ -130,15 +125,6 @@ export default function ConnectionsScreen() {
 
   return (
     <View className="flex-1 bg-wishy-white">
-      {/* Home Icon */}
-      <Pressable
-        onPress={handleLogoPress}
-        style={{ position: "absolute", top: insets.top + 8, left: 12, zIndex: 50 }}
-        className="w-9 h-9 bg-wishy-white rounded-full items-center justify-center active:opacity-70 shadow-md border border-wishy-paleBlush"
-      >
-        <Ionicons name="home" size={20} color="#8B2252" />
-      </Pressable>
-
       <ScrollView
         style={{ paddingTop: insets.top }}
         className="flex-1"

@@ -212,11 +212,6 @@ export default function DiscoveryScreen() {
     navigation.navigate("UserProfile", { userId: uid });
   };
 
-  const handleLogoPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("Landing");
-  };
-
   const resetFilters = () => {
     setDirectionFilter("all");
     setStatusFilter("all");
@@ -229,12 +224,6 @@ export default function DiscoveryScreen() {
       {/* Header */}
       <View style={{ paddingTop:insets.top }} className="bg-wishy-white border-b border-wishy-paleBlush">
         <View className="flex-row items-center px-4 py-3">
-          <Pressable
-            onPress={handleLogoPress}
-            className="w-8 h-8 bg-white rounded-full items-center justify-center active:opacity-70 border border-wishy-paleBlush mr-3"
-          >
-            <Ionicons name="home" size={16} color={BRAND} />
-          </Pressable>
           <View className="flex-1">
             <Text className="text-wishy-gray text-xs">
               {filteredWishes.length} {filteredWishes.length === 1 ? "wish" : "wishes"} accessible

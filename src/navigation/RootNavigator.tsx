@@ -1,8 +1,11 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import useNotificationStore from "../state/notificationStore";
 import useUserStore from "../state/userStore";
 
@@ -63,6 +66,36 @@ export type MainTabsParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabsParamList>();
+
+function HomeButton() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  return (
+    <Pressable
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        navigation.navigate("Landing");
+      }}
+      style={{
+        marginLeft: 8,
+        width: 32,
+        height: 32,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "#FFE5F1",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+      }}
+    >
+      <Ionicons name="home" size={20} color="#8B2252" />
+    </Pressable>
+  );
+}
 
 // Component for Profile tab icon with notification badge
 function ProfileTabIcon({ color, size }: { color: string; size: number }) {
@@ -131,6 +164,7 @@ function MainTabs() {
           fontWeight: "600",
         },
         headerShadowVisible: false,
+        headerLeft: () => <HomeButton />,
       }}
     >
       <Tab.Screen

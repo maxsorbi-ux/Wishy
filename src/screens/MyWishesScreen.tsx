@@ -125,11 +125,6 @@ export default function MyWishesScreen() {
     navigation.navigate("CreateWish", { mode });
   };
 
-  const handleLogoPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("Landing");
-  };
-
   const handleWishPress = (wishId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate("WishDetail", { wishId });
@@ -195,15 +190,6 @@ export default function MyWishesScreen() {
 
   return (
     <View className="flex-1 bg-wishy-white">
-      {/* Home Icon - Top Left Corner */}
-      <Pressable
-        onPress={handleLogoPress}
-        style={{ position: "absolute", top: insets.top + 8, left: 12, zIndex: 50 }}
-        className="w-9 h-9 bg-wishy-white rounded-full items-center justify-center active:opacity-70 shadow-md border border-wishy-paleBlush"
-      >
-        <Ionicons name="home" size={20} color="#8B2252" />
-      </Pressable>
-
       {/* Tabs - Dynamically show based on user role */}
       <View
         style={{ paddingTop: insets.top }}
