@@ -256,7 +256,6 @@ export default function ProfileScreen() {
   return (
     <View className="flex-1 bg-wishy-white">
       <ScrollView
-        style={{ paddingTop: insets.top }}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}

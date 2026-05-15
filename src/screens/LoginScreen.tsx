@@ -9,7 +9,7 @@ import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import useUserStore from "../state/userStore";
 import { cn } from "../utils/cn";
-import WishyLogo from "../components/WishyLogo";
+import { Image } from "expo-image";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Login">;
 
@@ -21,7 +21,6 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -50,18 +49,29 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-wishy-white"
+      className="flex-1 bg-white"
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <View style={{ paddingTop: insets.top + 20 }} className="flex-1">
-        {/* Logo */}
+      <View
+        className="flex-1"
+        style={{ paddingTop: insets.top + 40 }}
+      >
+        {/* Branding */}
         <Animated.View
           entering={FadeInDown.delay(100).duration(600)}
-          className="items-center mb-8"
+          className="items-center mb-8 px-8"
         >
-          <WishyLogo size={120} />
-          <Text className="text-3xl font-bold text-wishy-black mt-4">Welcome Back</Text>
-          <Text className="text-wishy-gray mt-2">Log in to continue</Text>
+          <Image
+            source={require("../../assets/wishy-logo.jpeg")}
+            style={{ width: 120, height: 120, borderRadius: 60 }}
+            contentFit="cover"
+          />
+          <Text className="text-4xl font-bold text-wishy-black tracking-tight mt-4">
+            Wishy
+          </Text>
+          <Text className="text-base text-wishy-gray mt-2 text-center">
+            Crave, Wish, Fulfill…with Wishy
+          </Text>
         </Animated.View>
 
         {/* Form */}

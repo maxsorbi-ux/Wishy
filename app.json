@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Wishy 1",
+    "name": "Wishy!",
     "slug": "wishy",
     "scheme": "vibecode",
     "version": "8.0.0",
@@ -21,6 +21,14 @@
       }
     },
     "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Wishy uses your camera to take photos for your profile picture and to add images to your wishes. For example, you can photograph a gift idea or a restaurant to attach it to a wish.",
+          "recordAudioAndroid": true,
+          "barcodeScannerEnabled": true
+        }
+      ],
       [
         "expo-notifications",
         {

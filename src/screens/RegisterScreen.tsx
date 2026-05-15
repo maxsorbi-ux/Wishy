@@ -9,6 +9,7 @@ import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import useUserStore from "../state/userStore";
 import { cn } from "../utils/cn";
+import EULAModal from "../components/EULAModal";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Register">;
 
@@ -23,6 +24,8 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   const handleRegister = async () => {
     setError("");
@@ -61,9 +64,12 @@ export default function RegisterScreen() {
     name.trim().length > 0 &&
     email.trim().length > 0 &&
     password.trim().length >= 6 &&
-    password === confirmPassword;
+    password === confirmPassword &&
+    agreedToTerms;
 
   return (
+    <>
+    <EULAModal visible={showTerms} onClose={() => setShowTerms(false)} />
     <KeyboardAvoidingView
       className="flex-1 bg-wishy-white"
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -142,6 +148,33 @@ export default function RegisterScreen() {
             />
           </Animated.View>
 
+          {/* Terms of Service */}
+          <Animated.View entering={FadeInUp.delay(450).duration(600)} className="mt-5">
+            <Pressable
+              onPress={() => setAgreedToTerms(!agreedToTerms)}
+              className="flex-row items-start active:opacity-70"
+            >
+              <Ionicons
+                name={agreedToTerms ? "checkbox" : "square-outline"}
+                size={22}
+                color={agreedToTerms ? "#8B2252" : "#9A8A8A"}
+                style={{ marginTop: 1 }}
+              />
+              <View className="flex-1 ml-3">
+                <Text className="text-wishy-gray text-sm leading-5">
+                  {"I agree to the "}
+                  <Text
+                    className="text-wishy-black font-semibold underline"
+                    onPress={() => setShowTerms(true)}
+                  >
+                    Terms of Service & Community Guidelines
+                  </Text>
+                  {". I understand that Wishy has zero tolerance for objectionable content or abusive users."}
+                </Text>
+              </View>
+            </Pressable>
+          </Animated.View>
+
           {error ? (
             <Animated.View entering={FadeInUp.duration(300)} className="mt-4">
               <View className="bg-red-50 border border-red-200 rounded-xl p-3 flex-row items-center">
@@ -151,7 +184,7 @@ export default function RegisterScreen() {
             </Animated.View>
           ) : null}
 
-          <Animated.View entering={FadeInUp.delay(500).duration(600)} className="mt-8">
+          <Animated.View entering={FadeInUp.delay(500).duration(600)} className="mt-6">
             <Pressable
               onPress={handleRegister}
               disabled={!isValid}
@@ -185,5 +218,6 @@ export default function RegisterScreen() {
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
+    </>
   );
 }

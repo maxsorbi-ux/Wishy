@@ -126,7 +126,6 @@ export default function ConnectionsScreen() {
   return (
     <View className="flex-1 bg-wishy-white">
       <ScrollView
-        style={{ paddingTop: insets.top }}
         className="flex-1"
         contentContainerStyle={{ padding: 16, gap: 16 }}
         showsVerticalScrollIndicator={false}

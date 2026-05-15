@@ -192,7 +192,6 @@ export default function MyWishesScreen() {
     <View className="flex-1 bg-wishy-white">
       {/* Tabs - Dynamically show based on user role */}
       <View
-        style={{ paddingTop: insets.top }}
         className="flex-row px-4 py-3 border-b border-wishy-paleBlush"
       >
         {showWishList && (

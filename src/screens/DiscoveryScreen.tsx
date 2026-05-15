@@ -222,7 +222,7 @@ export default function DiscoveryScreen() {
   return (
     <View className="flex-1 bg-wishy-white">
       {/* Header */}
-      <View style={{ paddingTop:insets.top }} className="bg-wishy-white border-b border-wishy-paleBlush">
+      <View className="bg-wishy-white border-b border-wishy-paleBlush">
         <View className="flex-row items-center px-4 py-3">
           <View className="flex-1">
             <Text className="text-wishy-gray text-xs">

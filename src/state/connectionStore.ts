@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Connection, ConnectionStatus, ConnectionType, Chat, ChatMessage, SharedWish, ContactRequest, BlockedUser, RelationshipUpgradeRequest } from "../types/wishy";
 import { v4 as uuidv4 } from "uuid";
+import { filterContent } from "../utils/contentFilter";
 import useNotificationStore from "./notificationStore";
 import { supabaseDb, supabaseRealtime, setSession } from "../api/supabase";
 import useUserStore from "./userStore";
@@ -665,13 +666,14 @@ const useConnectionStore = create<ConnectionState>()(
       addMessage: async (chatId, senderId, text) => {
         const id = uuidv4();
         const now = Date.now();
+        const filteredText = filterContent(text);
 
         const chat = get().chats.find((c) => c.id === chatId);
         const newMessage: ChatMessage = {
           id,
           wishId: chat?.wishId || chatId,
           senderId,
-          text,
+          text: filteredText,
           createdAt: now,
           read: false,
         };
@@ -695,7 +697,7 @@ const useConnectionStore = create<ConnectionState>()(
           id,
           chat_id: chatId,
           sender_id: senderId,
-          content: text,
+          content: filteredText,
           is_read: false,
         });
 
@@ -709,7 +711,7 @@ const useConnectionStore = create<ConnectionState>()(
               recipientId,
               "message_received",
               "New Message",
-              text.substring(0, 50) + (text.length > 50 ? "..." : ""),
+              filteredText.substring(0, 50) + (filteredText.length > 50 ? "..." : ""),
               chatId
             );
 
@@ -718,7 +720,7 @@ const useConnectionStore = create<ConnectionState>()(
               sendMessageNotification(
                 recipientId,
                 currentUser.name,
-                text,
+                filteredText,
                 chatId
               );
             }
