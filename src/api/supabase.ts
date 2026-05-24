@@ -429,7 +429,8 @@ export const supabaseDb = {
         return { data: null, error: { message: errorData.message || "RPC failed" } };
       }
 
-      const data = await response.json();
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : null;
       return { data, error: null };
     } catch (error) {
       return { data: null, error: { message: (error as Error).message } };

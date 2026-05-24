@@ -20,7 +20,7 @@ interface AuthState {
 
   // User actions
   updateUser: (updates: Partial<User>) => Promise<void>;
-  deleteAccount: () => Promise<void>;
+  deleteAccount: () => Promise<{ success: boolean; error?: string }>;
 
   // Sync actions
   fetchUserProfile: (userId: string) => Promise<User | null>;
@@ -308,19 +308,37 @@ const useUserStore = create<AuthState>()(
       },
 
       deleteAccount: async () => {
-        const { currentUser } = get();
-        if (!currentUser) return;
+        const { currentUser, supabaseSession } = get();
+        console.log('cuee', currentUser)
+        if (!currentUser) return { success: false, error: "No user logged in" };
 
-        // Note: Supabase Auth user deletion requires admin privileges
-        // For now, we just clear local state
-        await supabaseAuth.signOut();
+        try {
+          if (supabaseSession) {
+            setSession(supabaseSession);
+          }
 
-        set({
-          allUsers: get().allUsers.filter((u) => u.id !== currentUser.id),
-          currentUser: null,
-          isLoggedIn: false,
-          supabaseSession: null,
-        });
+          // Calls a SECURITY DEFINER function in Supabase that deletes both
+          // the profiles row and the auth.users entry for the current user.
+          // See SUPABASE_SETUP.md for the required SQL.
+          const rpcResult = await supabaseDb.rpc("delete_user");
+          console.log('rpcres', rpcResult)
+          if (rpcResult.error) {
+            return { success: false, error: rpcResult.error.message };
+          }
+
+          // await supabaseAuth.signOut();
+
+          set({
+            allUsers: [],
+            currentUser: null,
+            isLoggedIn: false,
+            supabaseSession: null,
+          });
+
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: (error as Error).message };
+        }
       },
 
       fetchUserProfile: async (userId) => {

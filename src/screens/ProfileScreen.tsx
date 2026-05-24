@@ -37,6 +37,8 @@ export default function ProfileScreen() {
   );
   const [galleryPhotoUri, setGalleryPhotoUri] = useState<string | null>(null);
   const [isUploadingGallery, setIsUploadingGallery] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const unreadNotifications = getUnreadCount(currentUser?.id || "");
 
@@ -232,16 +234,27 @@ export default function ProfileScreen() {
 
   const handleDeleteAccount = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setDeleteError(null);
     showModal("delete");
   };
 
-  const confirmDeleteAccount = () => {
+  const confirmDeleteAccount = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    const result = await deleteAccount();
+    setIsDeleting(false);
+
+    if (!result.success) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setDeleteError(result.error || "Failed to delete account. Please try again.");
+      return;
+    }
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    deleteAccount();
     hideModal("delete");
     navigation.reset({
       index: 0,
-      routes: [{ name: "Welcome" }],
+      routes: [{ name: "Login" }],
     });
   };
 
@@ -874,18 +887,28 @@ export default function ProfileScreen() {
                 </Text>
               </View>
 
+              {deleteError && (
+                <Text className="text-red-600 text-sm text-center mb-3">{deleteError}</Text>
+              )}
+
               <View className="flex-row gap-3">
                 <Pressable
-                  onPress={() => hideModal("delete")}
+                  onPress={() => !isDeleting && hideModal("delete")}
                   className="flex-1 py-3 rounded-xl items-center border border-wishy-pink active:opacity-80"
                 >
                   <Text className="text-wishy-black font-semibold">Cancel</Text>
                 </Pressable>
                 <Pressable
                   onPress={confirmDeleteAccount}
-                  className="flex-1 py-3 rounded-xl items-center bg-red-600 active:opacity-90"
+                  disabled={isDeleting}
+                  className={cn(
+                    "flex-1 py-3 rounded-xl items-center active:opacity-90",
+                    isDeleting ? "bg-red-300" : "bg-red-600"
+                  )}
                 >
-                  <Text className="text-white font-semibold">Delete</Text>
+                  <Text className="text-white font-semibold">
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </Text>
                 </Pressable>
               </View>
             </Animated.View>
